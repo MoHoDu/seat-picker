@@ -1,3 +1,4 @@
+export { AssignmentPolicy } from "./AssignmentPolicy";
 export type {
   AssignedSeat,
   AnimationSpeed,
@@ -7,4 +8,5 @@ export type {
   AssignmentStepReason,
   AssignmentSummary,
   PreferenceDistance,
+  ZoneCandidateTarget,
 } from "./types";

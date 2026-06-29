@@ -1,3 +1,4 @@
+export { AssignmentPolicy } from "./assignment";
 export { SeededRandom } from "./random";
 export { SeatLayout, ZoneLayoutPolicy } from "./seats";
 export { StudentRoster } from "./students";
@@ -10,6 +11,7 @@ export type {
   AssignmentStepReason,
   AssignmentSummary,
   PreferenceDistance,
+  ZoneCandidateTarget,
 } from "./assignment";
 export type {
   PreferenceSource,

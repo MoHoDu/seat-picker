@@ -6,6 +6,12 @@ export type AnimationSpeed = "fast" | "normal" | "slow";
 
 export type PreferenceDistance = 0 | 1 | 2;
 
+export type ZoneCandidateTarget = {
+  targetZone: Zone;
+  weight: number;
+  preferenceDistance: PreferenceDistance;
+};
+
 export type AssignmentCandidate = {
   studentId: StudentId;
   originPreference: Zone;
