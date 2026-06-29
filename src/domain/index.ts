@@ -1,3 +1,6 @@
+export { SeededRandom } from "./random";
+export { SeatLayout, ZoneLayoutPolicy } from "./seats";
+export { StudentRoster } from "./students";
 export type {
   AssignedSeat,
   AnimationSpeed,
@@ -17,6 +20,7 @@ export type { Seed } from "./random";
 export type {
   GridConfig,
   Seat,
+  SeatLayoutOptions,
   SeatId,
   SeatStatus,
   Zone,
