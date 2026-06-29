@@ -1,1 +1,1 @@
-export {};
+export type { Seed } from "./types";
