@@ -1,3 +1,5 @@
+export { AssignmentEngine } from "./AssignmentEngine";
+export type { AssignmentEngineInput } from "./AssignmentEngine";
 export { AssignmentPolicy } from "./AssignmentPolicy";
 export type {
   AssignedSeat,

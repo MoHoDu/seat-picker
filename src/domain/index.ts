@@ -1,8 +1,9 @@
-export { AssignmentPolicy } from "./assignment";
+export { AssignmentEngine, AssignmentPolicy } from "./assignment";
 export { SeededRandom } from "./random";
 export { SeatLayout, ZoneLayoutPolicy } from "./seats";
 export { StudentRoster } from "./students";
 export type {
+  AssignmentEngineInput,
   AssignedSeat,
   AnimationSpeed,
   AssignmentCandidate,
