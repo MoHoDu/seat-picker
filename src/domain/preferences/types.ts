@@ -5,6 +5,15 @@ export type PreferenceZone = Zone | null;
 
 export type PreferenceSource = "teacher" | "shared-device" | "remote-device";
 
+export type PreferenceSessionMode = "batch" | "sequential";
+
+export type PreferenceSessionProgress = {
+  totalCount: number;
+  submittedCount: number;
+  pendingCount: number;
+  isComplete: boolean;
+};
+
 // 각자의 선호도에 관련한 클래스
 export type PreferenceSubmission = {
   studentId: StudentId;

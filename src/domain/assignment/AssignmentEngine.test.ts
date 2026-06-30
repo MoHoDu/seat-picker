@@ -27,7 +27,7 @@ describe("AssignmentEngine", () => {
         students: [],
         seatLayout: createSeatLayout({ rows: 1, columns: 1 }),
         seed: "empty",
-      })
+      }),
     ).toThrow("At least one student");
   });
 
@@ -40,7 +40,7 @@ describe("AssignmentEngine", () => {
         ],
         seatLayout: createSeatLayout({ rows: 1, columns: 1 }),
         seed: "too-many",
-      })
+      }),
     ).toThrow("cannot exceed");
   });
 
@@ -53,7 +53,7 @@ describe("AssignmentEngine", () => {
         ],
         seatLayout: createSeatLayout({ rows: 1, columns: 2 }),
         seed: "duplicate",
-      })
+      }),
     ).toThrow("unique");
   });
 
@@ -63,7 +63,7 @@ describe("AssignmentEngine", () => {
         students: [{ id: "student-1", name: "   ", preference: null }],
         seatLayout: createSeatLayout({ rows: 1, columns: 1 }),
         seed: "empty-name",
-      })
+      }),
     ).toThrow("Student name cannot be empty");
   });
 
@@ -83,7 +83,7 @@ describe("AssignmentEngine", () => {
     });
 
     expect(
-      result.seats.find((seat) => seat.id === "1-1")?.student
+      result.seats.find((seat) => seat.id === "1-1")?.student,
     ).toBeUndefined();
     expect(getAssignedStudentIds(result).sort()).toEqual([
       "student-1",
@@ -172,8 +172,8 @@ describe("AssignmentEngine", () => {
     expect(getAssignedZones(result)).toContain("middle");
     expect(
       getAssignedZones(result).some(
-        (zone) => zone === "front" || zone === "back"
-      )
+        (zone) => zone === "front" || zone === "back",
+      ),
     ).toBe(true);
   });
 
@@ -292,11 +292,15 @@ describe("AssignmentEngine", () => {
       seed: "custom-zone-rows",
     });
 
-    expect(getAssignedSeatByStudentId(result, "front-student")?.zone).toBe("front");
-    expect(getAssignedSeatByStudentId(result, "middle-student")?.zone).toBe(
-      "middle"
+    expect(getAssignedSeatByStudentId(result, "front-student")?.zone).toBe(
+      "front",
     );
-    expect(getAssignedSeatByStudentId(result, "back-student")?.zone).toBe("back");
+    expect(getAssignedSeatByStudentId(result, "middle-student")?.zone).toBe(
+      "middle",
+    );
+    expect(getAssignedSeatByStudentId(result, "back-student")?.zone).toBe(
+      "back",
+    );
     expect(result.summary.primaryAssignedCount).toBe(3);
   });
 
@@ -316,11 +320,13 @@ describe("AssignmentEngine", () => {
     });
 
     expect(result.summary.emptySeatCount).toBe(0);
-    expect(result.seats.filter((seat) => seat.status === "available")).toHaveLength(
-      3
-    );
+    expect(
+      result.seats.filter((seat) => seat.status === "available"),
+    ).toHaveLength(3);
     expect(result.seats.filter((seat) => seat.student)).toHaveLength(3);
-    expect(result.seats.find((seat) => seat.id === "2-2")?.student).toBeUndefined();
+    expect(
+      result.seats.find((seat) => seat.id === "2-2")?.student,
+    ).toBeUndefined();
   });
 
   it("keeps every animation step internally consistent", () => {
@@ -348,24 +354,26 @@ describe("AssignmentEngine", () => {
 
       if (index > 0) {
         expect(step.zoneSequenceIndex).toBeGreaterThanOrEqual(
-          result.steps[index - 1]!.zoneSequenceIndex
+          result.steps[index - 1]!.zoneSequenceIndex,
         );
       }
 
       expect(step.candidateStudentIds).toContain(step.selectedStudentId);
       expect(step.candidateSeatIds).toContain(step.selectedSeatId);
       expect(new Set(step.candidateStudentIds).size).toBe(
-        step.candidateStudentIds.length
+        step.candidateStudentIds.length,
       );
-      expect(new Set(step.candidateSeatIds).size).toBe(step.candidateSeatIds.length);
+      expect(new Set(step.candidateSeatIds).size).toBe(
+        step.candidateSeatIds.length,
+      );
       expect(Object.keys(step.weightByStudentId).sort()).toEqual(
-        [...step.candidateStudentIds].sort()
+        [...step.candidateStudentIds].sort(),
       );
       expect(step.weightByStudentId[step.selectedStudentId]).toBeGreaterThan(0);
       expect(
         step.candidateSeatIds.every(
-          (seatId) => seatsById.get(seatId)?.status === "available"
-        )
+          (seatId) => seatsById.get(seatId)?.status === "available",
+        ),
       ).toBe(true);
     });
   });
@@ -385,9 +393,11 @@ describe("AssignmentEngine", () => {
       }),
       seed: "summary-consistency",
     });
-    const assignedSeatCount = result.seats.filter((seat) => seat.student).length;
+    const assignedSeatCount = result.seats.filter(
+      (seat) => seat.student,
+    ).length;
     const emptyAvailableSeatCount = result.seats.filter(
-      (seat) => seat.status === "available" && !seat.student
+      (seat) => seat.status === "available" && !seat.student,
     ).length;
     const summaryAssignedCount =
       result.summary.primaryAssignedCount +
@@ -453,7 +463,7 @@ function createEvenZones(rows: number) {
 
 function getAssignedStudentIds(result: AssignmentResult): string[] {
   return result.seats.flatMap((seat) =>
-    seat.student ? [seat.student.id] : []
+    seat.student ? [seat.student.id] : [],
   );
 }
 
@@ -461,6 +471,9 @@ function getAssignedZones(result: AssignmentResult): string[] {
   return result.seats.flatMap((seat) => (seat.student ? [seat.zone] : []));
 }
 
-function getAssignedSeatByStudentId(result: AssignmentResult, studentId: string) {
+function getAssignedSeatByStudentId(
+  result: AssignmentResult,
+  studentId: string,
+) {
   return result.seats.find((seat) => seat.student?.id === studentId);
 }

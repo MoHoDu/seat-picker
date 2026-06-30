@@ -1,9 +1,16 @@
-export { AssignmentEngine, AssignmentPolicy } from "./assignment";
+export {
+  AssignmentEngine,
+  AssignmentPlaybackController,
+  AssignmentPolicy,
+} from "./assignment";
+export { PreferenceSession } from "./preferences";
 export { SeededRandom } from "./random";
 export { SeatLayout, ZoneLayoutPolicy } from "./seats";
 export { StudentRoster } from "./students";
 export type {
   AssignmentEngineInput,
+  AssignmentPlaybackState,
+  AssignmentPlaybackStatus,
   AssignedSeat,
   AnimationSpeed,
   AssignmentCandidate,
@@ -11,11 +18,15 @@ export type {
   AssignmentStep,
   AssignmentStepReason,
   AssignmentSummary,
+  PlaybackSkipMode,
   PreferenceDistance,
   ZoneCandidateTarget,
 } from "./assignment";
 export type {
   PreferenceSource,
+  PreferenceSessionMode,
+  PreferenceSessionOptions,
+  PreferenceSessionProgress,
   PreferenceSubmission,
   PreferenceZone,
 } from "./preferences";
