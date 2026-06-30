@@ -468,7 +468,7 @@ button.seat-cell {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(100px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
   margin: 0;
 }
@@ -489,8 +489,9 @@ button.seat-cell {
 .summary-grid dd {
   margin: 4px 0 0;
   color: #111827;
-  font-size: 1.4rem;
+  font-size: 1.15rem;
   font-weight: 800;
+  overflow-wrap: anywhere;
 }
 
 .result-grid .seat-cell {

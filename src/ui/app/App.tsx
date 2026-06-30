@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AssignmentEngine,
   AssignmentPlaybackController,
@@ -18,6 +18,8 @@ import {
   type SeatPickerProjectState,
   updateProjectGrid,
 } from "../../application/storage";
+import { SeatMapExporter } from "../../infrastructure/export";
+import { LocalStorageProjectRepository } from "../../infrastructure/storage";
 
 const steps: Array<{ id: AppStep; label: string }> = [
   { id: "seat-setup", label: "좌석 설정" },
@@ -51,13 +53,23 @@ type DrawAnimationPhase =
   | "completed";
 
 export function App() {
-  const [project, setProject] = useState<SeatPickerProjectState>(() =>
-    createDefaultProjectState(),
+  const storageRepository = useMemo(
+    () => new LocalStorageProjectRepository(window.localStorage),
+    [],
   );
-  const [studentNamesInput, setStudentNamesInput] = useState("");
+  const [project, setProject] = useState<SeatPickerProjectState>(() =>
+    storageRepository.load() ?? createDefaultProjectState(),
+  );
+  const [studentNamesInput, setStudentNamesInput] = useState(() =>
+    project.students.map((student) => student.name).join("\n"),
+  );
   const [playback, setPlayback] =
     useState<AssignmentPlaybackController | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    storageRepository.save(project);
+  }, [project, storageRepository]);
 
   const seatLayoutState = useMemo(() => {
     try {
@@ -210,6 +222,10 @@ export function App() {
   };
 
   const startAssignment = () => {
+    runAssignment(project.seed);
+  };
+
+  const runAssignment = (seed: string) => {
     if (!preferenceSession || !seatLayoutState.layout) {
       setMessage(seatLayoutState.error ?? "추첨 준비 상태를 확인하세요.");
       return;
@@ -227,7 +243,7 @@ export function App() {
       const result = new AssignmentEngine().assign({
         students,
         seatLayout: seatLayoutState.layout,
-        seed: project.seed,
+        seed,
       });
       const nextPlayback = new AssignmentPlaybackController({
         steps: result.steps,
@@ -240,6 +256,7 @@ export function App() {
         step: "drawing",
         students,
         preferenceSubmissions: completedSession.getSubmissions(),
+        seed,
         assignmentResult: result,
       }));
     } catch (error) {
@@ -257,6 +274,20 @@ export function App() {
 
     setPlayback((current) => current?.complete() ?? null);
     goToStep("result");
+  };
+
+  const resetProject = () => {
+    const nextProject = createDefaultProjectState();
+
+    storageRepository.clear();
+    setPlayback(null);
+    setStudentNamesInput("");
+    setMessage(null);
+    setProject(nextProject);
+  };
+
+  const rerollAssignment = () => {
+    runAssignment(createRerollSeed());
   };
 
   return (
@@ -350,7 +381,8 @@ export function App() {
           result={project.assignmentResult}
           columns={project.grid.columns}
           onBack={() => goToStep("drawing")}
-          onRestart={() => goToStep("seat-setup")}
+          onReroll={rerollAssignment}
+          onRestart={resetProject}
         />
       ) : null}
     </main>
@@ -891,9 +923,38 @@ function ResultStep(props: {
   result: AssignmentResult;
   columns: number;
   onBack: () => void;
+  onReroll: () => void;
   onRestart: () => void;
 }) {
   const { result } = props;
+  const seatMapRef = useRef<HTMLDivElement | null>(null);
+  const exporter = useMemo(() => new SeatMapExporter(), []);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const exportPng = async () => {
+    if (!seatMapRef.current) {
+      setExportMessage("내보낼 좌석표를 찾을 수 없습니다.");
+      return;
+    }
+
+    try {
+      setIsExporting(true);
+      setExportMessage(null);
+      const exportResult = await exporter.exportPng(seatMapRef.current, {
+        fileName: createResultFileName(result.seed),
+      });
+      setExportMessage(
+        exportResult === "saved"
+          ? "PNG 저장을 완료했습니다."
+          : "PNG 저장이 취소되었습니다.",
+      );
+    } catch {
+      setExportMessage("PNG 저장에 실패했습니다.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <section className="tool-section" aria-labelledby="result-title">
@@ -906,13 +967,30 @@ function ResultStep(props: {
           <button type="button" className="secondary" onClick={props.onBack}>
             연출로 돌아가기
           </button>
+          <button
+            type="button"
+            className="secondary"
+          disabled={isExporting}
+          onClick={() => void exportPng()}
+        >
+            {isExporting ? "PNG 저장 중" : "PNG 저장 위치/이름 선택"}
+        </button>
+          <button type="button" className="secondary" onClick={props.onReroll}>
+            다시 뽑기
+          </button>
           <button type="button" onClick={props.onRestart}>
-            처음으로
+            처음부터 다시 설정
           </button>
         </div>
       </div>
 
+      {exportMessage ? <p className="hint">{exportMessage}</p> : null}
+
       <dl className="summary-grid">
+        <div>
+          <dt>Seed</dt>
+          <dd>{result.seed}</dd>
+        </div>
         <div>
           <dt>1순위 배정</dt>
           <dd>{result.summary.primaryAssignedCount}</dd>
@@ -936,6 +1014,7 @@ function ResultStep(props: {
       </dl>
 
       <div
+        ref={seatMapRef}
         className="seat-grid result-grid"
         style={{
           gridTemplateColumns: `repeat(${props.columns}, minmax(64px, 1fr))`,
@@ -989,6 +1068,16 @@ function toPositiveInteger(value: string): number {
   const parsed = Number(value);
 
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function createRerollSeed(): string {
+  return `seat-picker-${Date.now()}`;
+}
+
+function createResultFileName(seed: string): string {
+  const safeSeed = seed.replace(/[^a-z0-9가-힣_-]+/gi, "-");
+
+  return `seat-picker-${safeSeed}.png`;
 }
 
 function isFirstStepOfZone(

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -48,9 +48,39 @@ describe("App", () => {
     expect(
       screen.getByRole("heading", { name: "배정 결과" })
     ).toBeInTheDocument();
+    expect(screen.getByText("Seed")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "PNG 저장 위치/이름 선택" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다시 뽑기" })).toBeInTheDocument();
     expect(screen.getByText("1순위 배정")).toBeInTheDocument();
     expect(screen.getAllByText("김민준").length).toBeGreaterThan(0);
     expect(screen.getByText("이서연")).toBeInTheDocument();
+  });
+
+  it("restores the saved project after remounting the app", async () => {
+    const user = userEvent.setup();
+    const rendered = render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "다음" }));
+    await user.type(screen.getByLabelText("학생 이름 목록"), "김민준\n이서연");
+    await user.click(
+      screen.getByRole("button", { name: "명단 적용 및 선호 선택" }),
+    );
+    await user.click(screen.getByRole("radio", { name: "김민준 앞자리" }));
+
+    await waitFor(() => {
+      expect(localStorage.getItem("seat-picker:v1:project")).toContain("김민준");
+    });
+
+    rendered.unmount();
+    render(<App />);
+
+    expect(
+      screen.getByRole("heading", { name: "선호 선택" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("김민준")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "김민준 앞자리" })).toBeChecked();
   });
 
   it("plays the drawing animation through zone, student, and seat phases", async () => {
