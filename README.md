@@ -14,6 +14,7 @@
 - 대상: 교실/학원 좌석 배정
 - 사용자: 학생 참여형이지만 v1은 한 기기에서 차례로 선택
 - 앱 형태: 로컬 웹앱
+- 배포 URL: https://mohodu.github.io/seat-picker/
 - UI 언어: 한국어
 - 스택: Vite + React + TypeScript
 - 저장: `localStorage`
@@ -115,3 +116,12 @@ npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom
 npm install html-to-image
 git init
 ```
+
+## GitHub Pages 배포
+
+```bash
+npm run deploy
+```
+
+- Vite `base`는 GitHub Pages 저장소 경로에 맞춰 `/seat-picker/`로 설정한다.
+- 배포 결과물은 `gh-pages` 브랜치에 올라가며, GitHub Pages source는 `gh-pages` 브랜치의 `/root`를 사용한다.
