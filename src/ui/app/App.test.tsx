@@ -115,4 +115,78 @@ describe("App", () => {
     });
     expect(screen.getByText("좌석 확정")).toBeInTheDocument();
   });
+
+  it("supports speed selection, pause, resume, and skip-all controls", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    fireEvent.change(screen.getByLabelText("학생 이름 목록"), {
+      target: { value: "김민준\n이서연" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "명단 적용 및 선호 선택" }),
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "김민준 앞자리" }));
+    fireEvent.click(screen.getByRole("radio", { name: "이서연 앞자리" }));
+    fireEvent.click(screen.getByRole("button", { name: "추첨 시작" }));
+
+    expect(screen.getByRole("radio", { name: "연출 속도 보통" })).toBeChecked();
+
+    fireEvent.click(screen.getByRole("radio", { name: "연출 속도 빠름" }));
+
+    expect(screen.getByRole("radio", { name: "연출 속도 빠름" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "일시정지" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "재생" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
+
+    expect(screen.getByRole("button", { name: "일시정지됨" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "재생" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "전체 연출 건너뛰기" }));
+
+    expect(screen.getByText("모든 구역 추첨 완료")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "전체 연출 건너뛰기" }),
+    ).toBeDisabled();
+  });
+
+  it("does not spin when only one student or one seat candidate remains", async () => {
+    vi.useFakeTimers();
+    const setIntervalSpy = vi.spyOn(window, "setInterval");
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("행"), {
+      target: { value: "1" },
+    });
+    fireEvent.change(screen.getByLabelText("열"), {
+      target: { value: "1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    fireEvent.change(screen.getByLabelText("학생 이름 목록"), {
+      target: { value: "김민준" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "명단 적용 및 선호 선택" }),
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "김민준 앞자리" }));
+    fireEvent.click(screen.getByRole("button", { name: "추첨 시작" }));
+
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(screen.getByText("남은 학생이 한 명이라 결과를 표시합니다"))
+      .toBeInTheDocument();
+    expect(screen.getByText("김민준")).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1400);
+    });
+
+    expect(screen.getByText("남은 좌석이 한 자리라 결과를 표시합니다"))
+      .toBeInTheDocument();
+    expect(screen.getAllByText("김민준 → 1-1").length).toBeGreaterThan(0);
+    expect(setIntervalSpy).not.toHaveBeenCalled();
+  });
 });

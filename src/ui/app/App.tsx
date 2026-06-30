@@ -4,6 +4,7 @@ import {
   AssignmentPlaybackController,
   SeatLayout,
   StudentRoster,
+  type AnimationSpeed,
   type AssignmentResult,
   type PreferenceZone,
   type SeatId,
@@ -51,6 +52,37 @@ type DrawAnimationPhase =
   | "seat-spin"
   | "fixed"
   | "completed";
+
+const animationSpeedOptions: Array<{
+  label: string;
+  value: AnimationSpeed;
+}> = [
+  { label: "빠름", value: "fast" },
+  { label: "보통", value: "normal" },
+  { label: "느림", value: "slow" },
+];
+
+type AnimationDurations = {
+  zoneIntroMs: number;
+  studentSpinMs: number;
+  seatSpinMs: number;
+  fixedMs: number;
+  spinIntervalMs: number;
+};
+
+const normalAnimationDurations: AnimationDurations = {
+  zoneIntroMs: 1100,
+  studentSpinMs: 1300,
+  seatSpinMs: 3000,
+  fixedMs: 850,
+  spinIntervalMs: 90,
+};
+
+const animationTimeScale: Record<AnimationSpeed, number> = {
+  fast: 0.5,
+  normal: 1,
+  slow: 1.5,
+};
 
 export function App() {
   const storageRepository = useMemo(
@@ -650,6 +682,7 @@ function DrawingStep(props: {
   const state = controller.getState();
   const currentStep = state.currentStep;
   const currentStepKey = currentStep?.stepIndex ?? null;
+  const durations = getAnimationDurations(state.speed);
   const [phase, setPhase] = useState<DrawAnimationPhase>(() =>
     state.status === "completed" ? "completed" : "zone-intro",
   );
@@ -669,6 +702,12 @@ function DrawingStep(props: {
   const isFirstStepInZone = currentStep
     ? isFirstStepOfZone(props.result.steps, currentStep.stepIndex)
     : false;
+  const isCompleted = state.status === "completed";
+  const isPlaying = state.status === "playing";
+  const isPaused = state.status === "paused";
+  const shouldSpinStudents =
+    (currentStep?.candidateStudentIds.length ?? 0) > 1;
+  const shouldSpinSeats = (currentStep?.candidateSeatIds.length ?? 0) > 1;
 
   useEffect(() => {
     if (!currentStep) {
@@ -678,7 +717,7 @@ function DrawingStep(props: {
       return;
     }
 
-    if (state.status === "completed") {
+    if (isCompleted) {
       setPhase("completed");
       setDisplayStudentId(currentStep.selectedStudentId);
       setDisplaySeatId(currentStep.selectedSeatId);
@@ -692,8 +731,8 @@ function DrawingStep(props: {
     currentStep?.stepIndex,
     currentStep?.selectedSeatId,
     currentStep?.selectedStudentId,
+    isCompleted,
     isFirstStepInZone,
-    state.status,
   ]);
 
   useEffect(() => {
@@ -707,12 +746,12 @@ function DrawingStep(props: {
 
     const timeout = window.setTimeout(() => {
       setPhase("student-spin");
-    }, 1100);
+    }, durations.zoneIntroMs);
 
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [currentStepKey, phase, state.status]);
+  }, [currentStepKey, durations.zoneIntroMs, phase, state.status]);
 
   useEffect(() => {
     if (!currentStep || state.status !== "playing") {
@@ -725,23 +764,41 @@ function DrawingStep(props: {
 
     let spinIndex = 0;
     const candidates = currentStep.candidateStudentIds;
-    setDisplayStudentId(candidates[0] ?? currentStep.selectedStudentId);
+    setDisplayStudentId(currentStep.selectedStudentId);
 
+    if (candidates.length <= 1) {
+      const timeout = window.setTimeout(() => {
+        setDisplayStudentId(currentStep.selectedStudentId);
+        setPhase("seat-spin");
+      }, durations.studentSpinMs);
+
+      return () => {
+        window.clearTimeout(timeout);
+      };
+    }
+
+    setDisplayStudentId(candidates[0] ?? currentStep.selectedStudentId);
     const interval = window.setInterval(() => {
       spinIndex += 1;
       setDisplayStudentId(candidates[spinIndex % candidates.length] ?? null);
-    }, 90);
+    }, durations.spinIntervalMs);
     const timeout = window.setTimeout(() => {
       window.clearInterval(interval);
       setDisplayStudentId(currentStep.selectedStudentId);
       setPhase("seat-spin");
-    }, 1300);
+    }, durations.studentSpinMs);
 
     return () => {
       window.clearInterval(interval);
       window.clearTimeout(timeout);
     };
-  }, [currentStepKey, phase, state.status]);
+  }, [
+    currentStepKey,
+    durations.spinIntervalMs,
+    durations.studentSpinMs,
+    phase,
+    state.status,
+  ]);
 
   useEffect(() => {
     if (!currentStep || state.status !== "playing") {
@@ -754,25 +811,43 @@ function DrawingStep(props: {
 
     let spinIndex = 0;
     const candidateSeatIds = currentStep.candidateSeatIds;
-    setDisplaySeatId(candidateSeatIds[0] ?? currentStep.selectedSeatId);
+    setDisplaySeatId(currentStep.selectedSeatId);
 
+    if (candidateSeatIds.length <= 1) {
+      const timeout = window.setTimeout(() => {
+        setDisplaySeatId(currentStep.selectedSeatId);
+        setPhase("fixed");
+      }, durations.seatSpinMs);
+
+      return () => {
+        window.clearTimeout(timeout);
+      };
+    }
+
+    setDisplaySeatId(candidateSeatIds[0] ?? currentStep.selectedSeatId);
     const interval = window.setInterval(() => {
       spinIndex += 1;
       setDisplaySeatId(
         candidateSeatIds[spinIndex % candidateSeatIds.length] ?? null,
       );
-    }, 90);
+    }, durations.spinIntervalMs);
     const timeout = window.setTimeout(() => {
       window.clearInterval(interval);
       setDisplaySeatId(currentStep.selectedSeatId);
       setPhase("fixed");
-    }, 3000);
+    }, durations.seatSpinMs);
 
     return () => {
       window.clearInterval(interval);
       window.clearTimeout(timeout);
     };
-  }, [currentStepKey, phase, state.status]);
+  }, [
+    currentStepKey,
+    durations.seatSpinMs,
+    durations.spinIntervalMs,
+    phase,
+    state.status,
+  ]);
 
   useEffect(() => {
     if (!currentStep || state.status !== "playing") {
@@ -791,12 +866,37 @@ function DrawingStep(props: {
       if (nextController.getState().isComplete) {
         setPhase("completed");
       }
-    }, 850);
+    }, durations.fixedMs);
 
     return () => {
       window.clearTimeout(timeout);
     };
-  }, [controller, currentStepKey, phase, props.onPlaybackChange, state.status]);
+  }, [
+    controller,
+    currentStepKey,
+    durations.fixedMs,
+    phase,
+    props.onPlaybackChange,
+    state.status,
+  ]);
+
+  const changeSpeed = (speed: AnimationSpeed) => {
+    props.onPlaybackChange(controller.withSpeed(speed));
+  };
+
+  const pausePlayback = () => {
+    props.onPlaybackChange(controller.pause());
+  };
+
+  const playPlayback = () => {
+    props.onPlaybackChange(controller.play());
+  };
+
+  const skipPlayback = (
+    mode: Parameters<AssignmentPlaybackController["skip"]>[0],
+  ) => {
+    props.onPlaybackChange(controller.skip(mode));
+  };
 
   return (
     <section className="tool-section" aria-labelledby="drawing-title">
@@ -813,6 +913,34 @@ function DrawingStep(props: {
             결과 보기
           </button>
         </div>
+      </div>
+
+      <div className="playback-toolbar">
+        <fieldset className="speed-control">
+          <legend>연출 속도</legend>
+          <div className="segmented-control">
+            {animationSpeedOptions.map((option) => (
+              <label
+                key={option.value}
+                className={state.speed === option.value ? "selected" : ""}
+              >
+                <input
+                  type="radio"
+                  name="animation-speed"
+                  aria-label={`연출 속도 ${option.label}`}
+                  checked={state.speed === option.value}
+                  onChange={() => changeSpeed(option.value)}
+                />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <p className="playback-status">
+          {getPlaybackStatusLabel(state.status)} ·{" "}
+          {state.completedStepCount}/{state.totalStepCount}
+        </p>
       </div>
 
       <div className={`draw-stage ${phase}`}>
@@ -841,21 +969,29 @@ function DrawingStep(props: {
           {phase === "student-spin" && currentStep ? (
             <>
               <p>학생 슬롯</p>
-              <strong className="slot-value">
+              <strong className={shouldSpinStudents ? "slot-value spinning" : "slot-value"}>
                 {displayStudentName ?? "학생 선택 중"}
               </strong>
-              <span>{zoneLabels[currentStep.zone]} 후보에서 한 명 선택</span>
+              <span>
+                {shouldSpinStudents
+                  ? `${zoneLabels[currentStep.zone]} 후보에서 한 명 선택`
+                  : "남은 학생이 한 명이라 결과를 표시합니다"}
+              </span>
             </>
           ) : null}
 
           {phase === "seat-spin" && currentStep ? (
             <>
               <p>자리 슬롯</p>
-              <strong className="slot-value">
+              <strong className={shouldSpinSeats ? "slot-value spinning" : "slot-value"}>
                 {displayStudentName ?? selectedStudentName} →{" "}
                 {displaySeatId ?? "좌석 선택 중"}
               </strong>
-              <span>3초 동안 구역 안에서 좌석이 바뀝니다</span>
+              <span>
+                {shouldSpinSeats
+                  ? "구역 안에서 좌석이 바뀝니다"
+                  : "남은 좌석이 한 자리라 결과를 표시합니다"}
+              </span>
             </>
           ) : null}
 
@@ -883,36 +1019,39 @@ function DrawingStep(props: {
         <button
           type="button"
           className="secondary"
-          onClick={() => props.onPlaybackChange(controller.pause())}
+          disabled={!isPlaying}
+          onClick={pausePlayback}
         >
-          일시정지
+          {isPaused ? "일시정지됨" : "일시정지"}
         </button>
         <button
           type="button"
           className="secondary"
-          onClick={() => props.onPlaybackChange(controller.play())}
+          disabled={isPlaying || isCompleted}
+          onClick={playPlayback}
         >
           재생
         </button>
         <button
           type="button"
-          onClick={() =>
-            props.onPlaybackChange(controller.skip("current-student"))
-          }
+          disabled={isCompleted}
+          onClick={() => skipPlayback("current-student")}
         >
-          현재 학생 건너뛰기
+          현재 학생 연출 건너뛰기
         </button>
         <button
           type="button"
-          onClick={() => props.onPlaybackChange(controller.skip("current-zone"))}
+          disabled={isCompleted}
+          onClick={() => skipPlayback("current-zone")}
         >
-          구역 건너뛰기
+          현재 구역 연출 건너뛰기
         </button>
         <button
           type="button"
-          onClick={() => props.onPlaybackChange(controller.skip("all"))}
+          disabled={isCompleted}
+          onClick={() => skipPlayback("all")}
         >
-          전체 건너뛰기
+          전체 연출 건너뛰기
         </button>
       </div>
     </section>
@@ -1078,6 +1217,36 @@ function createResultFileName(seed: string): string {
   const safeSeed = seed.replace(/[^a-z0-9가-힣_-]+/gi, "-");
 
   return `seat-picker-${safeSeed}.png`;
+}
+
+function getAnimationDurations(speed: AnimationSpeed): AnimationDurations {
+  const scale = animationTimeScale[speed];
+
+  return {
+    zoneIntroMs: Math.round(normalAnimationDurations.zoneIntroMs * scale),
+    studentSpinMs: Math.round(normalAnimationDurations.studentSpinMs * scale),
+    seatSpinMs: Math.round(normalAnimationDurations.seatSpinMs * scale),
+    fixedMs: Math.round(normalAnimationDurations.fixedMs * scale),
+    spinIntervalMs: Math.max(
+      16,
+      Math.round(normalAnimationDurations.spinIntervalMs * scale),
+    ),
+  };
+}
+
+function getPlaybackStatusLabel(status: ReturnType<
+  AssignmentPlaybackController["getState"]
+>["status"]): string {
+  switch (status) {
+    case "idle":
+      return "대기";
+    case "playing":
+      return "재생 중";
+    case "paused":
+      return "일시정지";
+    case "completed":
+      return "완료";
+  }
 }
 
 function isFirstStepOfZone(
