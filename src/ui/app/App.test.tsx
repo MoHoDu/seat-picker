@@ -18,6 +18,76 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: "다음" })).toBeInTheDocument();
   });
 
+  it("disables seat setup progression when zone rows do not match total rows", () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("앞줄"), {
+      target: { value: "1" },
+    });
+
+    expect(
+      screen.getByText(
+        "앞/중간/뒤 행 합계가 전체 행과 같아야 합니다. 현재 합계가 1행 부족합니다.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다음" })).toBeDisabled();
+  });
+
+  it("blocks student input when the roster is larger than available seats", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("행"), {
+      target: { value: "1" },
+    });
+    fireEvent.change(screen.getByLabelText("열"), {
+      target: { value: "1" },
+    });
+    await user.click(screen.getByRole("button", { name: "다음" }));
+    await user.type(screen.getByLabelText("학생 이름 목록"), "김민준\n이서연");
+
+    expect(
+      screen.getByText(
+        "학생 2명은 사용 가능 좌석 1석보다 많습니다. 좌석을 늘리거나 명단을 줄이세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "명단 적용 및 선호 선택" }),
+    ).toBeDisabled();
+  });
+
+  it("requires pending preferences and an empty seed to be resolved before drawing", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "다음" }));
+    await user.type(screen.getByLabelText("학생 이름 목록"), "김민준\n이서연");
+    await user.click(
+      screen.getByRole("button", { name: "명단 적용 및 선호 선택" }),
+    );
+    await user.click(screen.getByRole("radio", { name: "김민준 앞자리" }));
+
+    const seedInput = screen.getByLabelText("Seed");
+    await user.clear(seedInput);
+
+    expect(
+      screen.getByText(
+        "Seed를 입력하세요. 같은 Seed는 같은 추첨 결과를 재현하는 데 사용됩니다.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "선호 미선택 학생 1명이 있습니다. 미선택 무선호 처리를 눌러 확정한 뒤 추첨을 시작하세요.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "추첨 시작" })).toBeDisabled();
+
+    await user.type(seedInput, "fixed-seed");
+    await user.click(screen.getByRole("button", { name: "미선택 무선호 처리" }));
+
+    expect(screen.getByRole("button", { name: "추첨 시작" })).toBeEnabled();
+  });
+
   it("connects student input, preferences, assignment, and result flow", async () => {
     const user = userEvent.setup();
     render(<App />);

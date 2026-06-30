@@ -19,6 +19,15 @@ import {
   type SeatPickerProjectState,
   updateProjectGrid,
 } from "../../application/storage";
+import {
+  validatePreferenceSelection,
+  validateSeatSetup,
+  validateStudentInput,
+  type PreferenceSelectionValidation,
+  type ProjectValidationIssue,
+  type SeatSetupValidation,
+  type StudentInputValidation,
+} from "../../application/validation";
 import { SeatMapExporter } from "../../infrastructure/export";
 import { LocalStorageProjectRepository } from "../../infrastructure/storage";
 
@@ -135,6 +144,34 @@ export function App() {
 
     return createPreferenceSessionFromState(project);
   }, [project]);
+  const seatSetupValidation = useMemo(
+    () =>
+      validateSeatSetup(
+        project,
+        seatLayoutState.layout,
+        seatLayoutState.error,
+      ),
+    [project, seatLayoutState.error, seatLayoutState.layout],
+  );
+  const studentInputValidation = useMemo(
+    () =>
+      validateStudentInput({
+        studentCount: studentRoster.size,
+        availableSeatCount: seatSetupValidation.availableSeatCount,
+      }),
+    [seatSetupValidation.availableSeatCount, studentRoster.size],
+  );
+  const preferenceValidation = useMemo(() => {
+    if (!preferenceSession) {
+      return null;
+    }
+
+    return validatePreferenceSelection({
+      project,
+      seatLayout: seatLayoutState.layout,
+      preferenceSession,
+    });
+  }, [preferenceSession, project, seatLayoutState.layout]);
 
   const canOpenStep = (step: AppStep): boolean => {
     if (step === "seat-setup" || step === "student-input") {
@@ -187,8 +224,8 @@ export function App() {
   };
 
   const moveFromSeatSetup = () => {
-    if (seatLayoutState.error) {
-      setMessage(seatLayoutState.error);
+    if (!seatSetupValidation.canContinue) {
+      setMessage(getFirstBlockingMessage(seatSetupValidation.issues));
       return;
     }
 
@@ -196,12 +233,12 @@ export function App() {
   };
 
   const applyStudentNames = () => {
-    const students = studentRoster.getStudents();
-
-    if (students.length === 0) {
-      setMessage("학생 이름을 한 명 이상 입력하세요.");
+    if (!studentInputValidation.canContinue) {
+      setMessage(getFirstBlockingMessage(studentInputValidation.issues));
       return;
     }
+
+    const students = studentRoster.getStudents();
 
     setMessage(null);
     setProject((current) => ({
@@ -254,7 +291,14 @@ export function App() {
   };
 
   const startAssignment = () => {
-    runAssignment(project.seed);
+    if (!preferenceValidation?.canStart) {
+      setMessage(
+        getFirstBlockingMessage(preferenceValidation?.issues ?? []),
+      );
+      return;
+    }
+
+    runAssignment(project.seed.trim());
   };
 
   const runAssignment = (seed: string) => {
@@ -263,19 +307,24 @@ export function App() {
       return;
     }
 
+    const normalizedSeed = seed.trim();
+
+    if (normalizedSeed.length === 0) {
+      setMessage("Seed를 입력하세요.");
+      return;
+    }
+
+    if (!preferenceSession.getProgress().isComplete) {
+      setMessage("선호 미선택 학생을 무선호로 확정한 뒤 추첨을 시작하세요.");
+      return;
+    }
+
     try {
-      const completedSession = preferenceSession.submitMany(
-        preferenceSession.getPendingStudentIds().map((studentId) => ({
-          studentId,
-          preference: null,
-          source: "teacher",
-        })),
-      );
-      const students = completedSession.applyToStudents();
+      const students = preferenceSession.applyToStudents();
       const result = new AssignmentEngine().assign({
         students,
         seatLayout: seatLayoutState.layout,
-        seed,
+        seed: normalizedSeed,
       });
       const nextPlayback = new AssignmentPlaybackController({
         steps: result.steps,
@@ -287,8 +336,8 @@ export function App() {
         ...current,
         step: "drawing",
         students,
-        preferenceSubmissions: completedSession.getSubmissions(),
-        seed,
+        preferenceSubmissions: preferenceSession.getSubmissions(),
+        seed: normalizedSeed,
         assignmentResult: result,
       }));
     } catch (error) {
@@ -356,7 +405,7 @@ export function App() {
         <SeatSetupStep
           project={project}
           seatLayout={seatLayoutState.layout}
-          error={seatLayoutState.error}
+          validation={seatSetupValidation}
           onGridChange={(rows, columns) => {
             setProject((current) =>
               updateProjectGrid(current, { rows, columns }),
@@ -372,6 +421,7 @@ export function App() {
         <StudentInputStep
           namesInput={studentNamesInput}
           roster={studentRoster}
+          validation={studentInputValidation}
           onChange={setStudentNamesInput}
           onBack={() => goToStep("seat-setup")}
           onNext={applyStudentNames}
@@ -383,6 +433,7 @@ export function App() {
           project={project}
           studentDisplays={studentDisplays}
           preferenceSession={preferenceSession}
+          validation={preferenceValidation}
           onPreferenceChange={submitPreference}
           onFillPending={fillPendingAsUnpreferred}
           onSeedChange={(seed) =>
@@ -424,7 +475,7 @@ export function App() {
 function SeatSetupStep(props: {
   project: SeatPickerProjectState;
   seatLayout: SeatLayout | null;
-  error: string | null;
+  validation: SeatSetupValidation;
   onGridChange: (rows: number, columns: number) => void;
   onZoneRowChange: (
     key: keyof SeatPickerProjectState["zoneRows"],
@@ -433,11 +484,7 @@ function SeatSetupStep(props: {
   onToggleUnavailableSeat: (seatId: SeatId) => void;
   onNext: () => void;
 }) {
-  const { project, seatLayout, error } = props;
-  const zoneTotal =
-    project.zoneRows.frontRows +
-    project.zoneRows.middleRows +
-    project.zoneRows.backRows;
+  const { project, seatLayout, validation } = props;
 
   return (
     <section className="tool-section" aria-labelledby="seat-setup-title">
@@ -446,7 +493,11 @@ function SeatSetupStep(props: {
           <p>1단계</p>
           <h2 id="seat-setup-title">좌석 설정</h2>
         </div>
-        <button type="button" onClick={props.onNext}>
+        <button
+          type="button"
+          disabled={!validation.canContinue}
+          onClick={props.onNext}
+        >
           다음
         </button>
       </div>
@@ -518,10 +569,19 @@ function SeatSetupStep(props: {
         </label>
       </div>
 
-      <p className={zoneTotal === project.grid.rows ? "hint" : "hint warning"}>
-        구역 행 합계 {zoneTotal} / 전체 행 {project.grid.rows}
+      <p
+        className={
+          validation.zoneRowTotal === project.grid.rows ? "hint" : "hint warning"
+        }
+      >
+        구역 행 합계 {validation.zoneRowTotal} / 전체 행 {project.grid.rows}
       </p>
-      {error ? <p className="inline-error">{error}</p> : null}
+      <p className="hint">
+        전체 {validation.totalSeatCount}석 · 사용 가능{" "}
+        {validation.availableSeatCount}석 · 사용 불가{" "}
+        {validation.unavailableSeatCount}석
+      </p>
+      <ValidationMessages issues={validation.issues} />
 
       {seatLayout ? (
         <SeatGrid
@@ -538,6 +598,7 @@ function SeatSetupStep(props: {
 function StudentInputStep(props: {
   namesInput: string;
   roster: StudentRoster;
+  validation: StudentInputValidation;
   onChange: (value: string) => void;
   onBack: () => void;
   onNext: () => void;
@@ -555,7 +616,11 @@ function StudentInputStep(props: {
           <button type="button" className="secondary" onClick={props.onBack}>
             이전
           </button>
-          <button type="button" onClick={props.onNext}>
+          <button
+            type="button"
+            disabled={!props.validation.canContinue}
+            onClick={props.onNext}
+          >
             명단 적용 및 선호 선택
           </button>
         </div>
@@ -573,6 +638,11 @@ function StudentInputStep(props: {
 
       <div className="student-preview" aria-label="학생 미리보기">
         <strong>인식된 학생 {displays.length}명</strong>
+        <p className="hint">
+          사용 가능 좌석 {props.validation.availableSeatCount}석 / 입력 학생{" "}
+          {props.validation.studentCount}명
+        </p>
+        <ValidationMessages issues={props.validation.issues} />
         <ul>
           {displays.map((student) => (
             <li key={student.id}>{student.displayName}</li>
@@ -589,6 +659,7 @@ function PreferenceSelectionStep(props: {
   preferenceSession: NonNullable<
     ReturnType<typeof createPreferenceSessionFromState>
   >;
+  validation: PreferenceSelectionValidation | null;
   onPreferenceChange: (studentId: StudentId, preference: PreferenceZone) => void;
   onFillPending: () => void;
   onSeedChange: (seed: string) => void;
@@ -608,7 +679,11 @@ function PreferenceSelectionStep(props: {
           <button type="button" className="secondary" onClick={props.onBack}>
             이전
           </button>
-          <button type="button" onClick={props.onStart}>
+          <button
+            type="button"
+            disabled={!props.validation?.canStart}
+            onClick={props.onStart}
+          >
             추첨 시작
           </button>
         </div>
@@ -616,7 +691,8 @@ function PreferenceSelectionStep(props: {
 
       <div className="preference-toolbar">
         <p>
-          제출 {progress.submittedCount}명 / 전체 {progress.totalCount}명
+          제출 {progress.submittedCount}명 / 전체 {progress.totalCount}명 ·
+          미선택 {progress.pendingCount}명
         </p>
         <label>
           Seed
@@ -625,10 +701,16 @@ function PreferenceSelectionStep(props: {
             onChange={(event) => props.onSeedChange(event.currentTarget.value)}
           />
         </label>
-        <button type="button" className="secondary" onClick={props.onFillPending}>
+        <button
+          type="button"
+          className="secondary"
+          disabled={progress.pendingCount === 0}
+          onClick={props.onFillPending}
+        >
           미선택 무선호 처리
         </button>
       </div>
+      <ValidationMessages issues={props.validation?.issues ?? []} />
 
       <div className="preference-list">
         {props.studentDisplays.map((student) => {
@@ -1170,6 +1252,22 @@ function ResultStep(props: {
   );
 }
 
+function ValidationMessages(props: { issues: ProjectValidationIssue[] }) {
+  if (props.issues.length === 0) {
+    return null;
+  }
+
+  return (
+    <ul className="validation-list" aria-label="입력 검증 메시지">
+      {props.issues.map((issue) => (
+        <li key={issue.code} className={`validation-item ${issue.severity}`}>
+          {issue.message}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function SeatGrid(props: {
   seats: ReturnType<SeatLayout["getSeats"]>;
   columns: number;
@@ -1217,6 +1315,15 @@ function createResultFileName(seed: string): string {
   const safeSeed = seed.replace(/[^a-z0-9가-힣_-]+/gi, "-");
 
   return `seat-picker-${safeSeed}.png`;
+}
+
+function getFirstBlockingMessage(
+  issues: readonly ProjectValidationIssue[],
+): string {
+  return (
+    issues.find((issue) => issue.severity === "error")?.message ??
+    "입력값을 확인하세요."
+  );
 }
 
 function getAnimationDurations(speed: AnimationSpeed): AnimationDurations {
