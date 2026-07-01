@@ -32,6 +32,7 @@ import {
 } from "../../application/validation";
 import { SeatMapExporter } from "../../infrastructure/export";
 import { LocalStorageProjectRepository } from "../../infrastructure/storage";
+import { VersionSelector } from "../components";
 
 const steps: Array<{ id: AppStep; label: string }> = [
   { id: "seat-setup", label: "좌석 설정" },
@@ -100,14 +101,15 @@ export function App() {
     () => new LocalStorageProjectRepository(window.localStorage),
     [],
   );
-  const [project, setProject] = useState<SeatPickerProjectState>(() =>
-    storageRepository.load() ?? createDefaultProjectState(),
+  const [project, setProject] = useState<SeatPickerProjectState>(
+    () => storageRepository.load() ?? createDefaultProjectState(),
   );
   const [studentNamesInput, setStudentNamesInput] = useState(() =>
     project.students.map((student) => student.name).join("\n"),
   );
-  const [playback, setPlayback] =
-    useState<AssignmentPlaybackController | null>(null);
+  const [playback, setPlayback] = useState<AssignmentPlaybackController | null>(
+    null,
+  );
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -123,7 +125,8 @@ export function App() {
     } catch (error) {
       return {
         layout: null,
-        error: error instanceof Error ? error.message : "좌석 설정을 확인하세요.",
+        error:
+          error instanceof Error ? error.message : "좌석 설정을 확인하세요.",
       };
     }
   }, [project]);
@@ -148,11 +151,7 @@ export function App() {
   }, [project]);
   const seatSetupValidation = useMemo(
     () =>
-      validateSeatSetup(
-        project,
-        seatLayoutState.layout,
-        seatLayoutState.error,
-      ),
+      validateSeatSetup(project, seatLayoutState.layout, seatLayoutState.error),
     [project, seatLayoutState.error, seatLayoutState.layout],
   );
   const studentInputValidation = useMemo(
@@ -309,9 +308,7 @@ export function App() {
 
   const startAssignment = () => {
     if (!preferenceValidation?.canStart) {
-      setMessage(
-        getFirstBlockingMessage(preferenceValidation?.issues ?? []),
-      );
+      setMessage(getFirstBlockingMessage(preferenceValidation?.issues ?? []));
       return;
     }
 
@@ -412,10 +409,13 @@ export function App() {
           <p className="app-kicker">교실/학원 좌석 추첨 도구</p>
           <h1 id="app-title">seat-picker</h1>
         </div>
-        <p className="app-description">
-          좌석 설정, 학생 명단, 선호 구역을 한 흐름에서 입력하고 재현 가능한
-          좌석 배정을 만듭니다.
-        </p>
+        <div className="header-side">
+          <p className="app-description">
+            좌석 설정, 학생 명단, 선호 구역을 한 흐름에서 입력하고 재현 가능한
+            좌석 배정을 만듭니다.
+          </p>
+          <VersionSelector />
+        </div>
       </header>
 
       <nav className="step-nav" aria-label="진행 단계">
@@ -488,7 +488,9 @@ export function App() {
           result={project.assignmentResult}
           columns={project.grid.columns}
           playback={playback}
-          studentsById={new Map(project.students.map((student) => [student.id, student]))}
+          studentsById={
+            new Map(project.students.map((student) => [student.id, student]))
+          }
           onPlaybackChange={setPlayback}
           onBack={() => goToStep("preference-selection")}
           onShowResult={showResult}
@@ -581,7 +583,10 @@ function SeatSetupStep(props: {
             min={0}
             value={project.zoneRows.frontRows}
             onChange={(event) =>
-              props.onZoneRowChange("frontRows", Number(event.currentTarget.value))
+              props.onZoneRowChange(
+                "frontRows",
+                Number(event.currentTarget.value),
+              )
             }
           />
         </label>
@@ -606,7 +611,10 @@ function SeatSetupStep(props: {
             min={0}
             value={project.zoneRows.backRows}
             onChange={(event) =>
-              props.onZoneRowChange("backRows", Number(event.currentTarget.value))
+              props.onZoneRowChange(
+                "backRows",
+                Number(event.currentTarget.value),
+              )
             }
           />
         </label>
@@ -614,7 +622,9 @@ function SeatSetupStep(props: {
 
       <p
         className={
-          validation.zoneRowTotal === project.grid.rows ? "hint" : "hint warning"
+          validation.zoneRowTotal === project.grid.rows
+            ? "hint"
+            : "hint warning"
         }
       >
         구역 행 합계 {validation.zoneRowTotal} / 전체 행 {project.grid.rows}
@@ -703,7 +713,10 @@ function PreferenceSelectionStep(props: {
     ReturnType<typeof createPreferenceSessionFromState>
   >;
   validation: PreferenceSelectionValidation | null;
-  onPreferenceChange: (studentId: StudentId, preference: PreferenceZone) => void;
+  onPreferenceChange: (
+    studentId: StudentId,
+    preference: PreferenceZone,
+  ) => void;
   onFillPending: () => void;
   onSeedChange: (seed: string) => void;
   onBack: () => void;
@@ -770,7 +783,10 @@ function PreferenceSelectionStep(props: {
                     submission.preference === option.value;
 
                   return (
-                    <label key={optionKey} className={checked ? "selected" : ""}>
+                    <label
+                      key={optionKey}
+                      className={checked ? "selected" : ""}
+                    >
                       <input
                         type="radio"
                         name={`preference-${student.id}`}
@@ -819,7 +835,8 @@ function DrawingStep(props: {
     currentStep?.selectedSeatId ?? null,
   );
   const selectedStudentName = state.currentStep
-    ? (props.studentsById.get(state.currentStep.selectedStudentId)?.name ?? null)
+    ? (props.studentsById.get(state.currentStep.selectedStudentId)?.name ??
+      null)
     : null;
   const displayStudentName = displayStudentId
     ? (props.studentsById.get(displayStudentId)?.name ?? null)
@@ -831,8 +848,7 @@ function DrawingStep(props: {
   const isCompleted = state.status === "completed";
   const isPlaying = state.status === "playing";
   const isPaused = state.status === "paused";
-  const shouldSpinStudents =
-    (currentStep?.candidateStudentIds.length ?? 0) > 1;
+  const shouldSpinStudents = (currentStep?.candidateStudentIds.length ?? 0) > 1;
   const shouldSpinSeats = (currentStep?.candidateSeatIds.length ?? 0) > 1;
   const selectedSeat = currentStep
     ? findSeat(props.result.seats, currentStep.selectedSeatId)
@@ -1083,8 +1099,8 @@ function DrawingStep(props: {
         </fieldset>
 
         <p className="playback-status">
-          {getPlaybackStatusLabel(state.status)} ·{" "}
-          {state.completedStepCount}/{state.totalStepCount}
+          {getPlaybackStatusLabel(state.status)} · {state.completedStepCount}/
+          {state.totalStepCount}
         </p>
       </div>
 
@@ -1117,7 +1133,9 @@ function DrawingStep(props: {
             }
             activeSeatId={phase === "seat-spin" ? displaySeatId : null}
             fixedSeatId={
-              phase === "fixed" && currentStep ? currentStep.selectedSeatId : null
+              phase === "fixed" && currentStep
+                ? currentStep.selectedSeatId
+                : null
             }
             rouletteStudentName={displayStudentName ?? selectedStudentName}
           />
@@ -1135,7 +1153,11 @@ function DrawingStep(props: {
           {phase === "student-spin" && currentStep ? (
             <>
               <p>학생 슬롯</p>
-              <strong className={shouldSpinStudents ? "slot-value spinning" : "slot-value"}>
+              <strong
+                className={
+                  shouldSpinStudents ? "slot-value spinning" : "slot-value"
+                }
+              >
                 {displayStudentName ?? "학생 선택 중"}
               </strong>
               <span>
@@ -1149,7 +1171,11 @@ function DrawingStep(props: {
           {phase === "seat-spin" && currentStep ? (
             <>
               <p>자리 슬롯</p>
-              <strong className={shouldSpinSeats ? "slot-value spinning" : "slot-value"}>
+              <strong
+                className={
+                  shouldSpinSeats ? "slot-value spinning" : "slot-value"
+                }
+              >
                 {displayStudentName ?? selectedStudentName} →{" "}
                 {displaySeatLabel ?? "좌석 선택 중"}
               </strong>
@@ -1383,11 +1409,11 @@ function ResultStep(props: {
           <button
             type="button"
             className="secondary"
-          disabled={isExporting}
-          onClick={() => void exportPng()}
-        >
+            disabled={isExporting}
+            onClick={() => void exportPng()}
+          >
             {isExporting ? "PNG 저장 중" : "PNG 저장 위치/이름 선택"}
-        </button>
+          </button>
           <button type="button" className="secondary" onClick={props.onReroll}>
             다시 뽑기
           </button>
@@ -1690,9 +1716,9 @@ function getAnimationDurations(speed: AnimationSpeed): AnimationDurations {
   };
 }
 
-function getPlaybackStatusLabel(status: ReturnType<
-  AssignmentPlaybackController["getState"]
->["status"]): string {
+function getPlaybackStatusLabel(
+  status: ReturnType<AssignmentPlaybackController["getState"]>["status"],
+): string {
   switch (status) {
     case "idle":
       return "대기";
