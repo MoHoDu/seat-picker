@@ -1,0 +1,21 @@
+{
+  "latest": "v1.2",
+  "versions": [
+    {
+      "label": "최신",
+      "path": "/seat-picker/"
+    },
+    {
+      "label": "v1.2",
+      "path": "/seat-picker/versions/v1.2/"
+    },
+    {
+      "label": "v1.1",
+      "path": "/seat-picker/versions/v1.1/"
+    },
+    {
+      "label": "v1.0",
+      "path": "/seat-picker/versions/v1.0/"
+    }
+  ]
+}
