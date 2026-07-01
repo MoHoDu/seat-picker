@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist",
+    "deploy": "node scripts/deploy-pages-version.mjs latest",
+    "deploy:latest": "node scripts/deploy-pages-version.mjs latest",
+    "deploy:version": "node scripts/deploy-pages-version.mjs",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",
