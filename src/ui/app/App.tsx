@@ -436,17 +436,17 @@ export function App() {
   return (
     <main className="app-shell">
       <header className="app-header" aria-labelledby="app-title">
-        <div>
+        <div className="header-title">
           <p className="app-kicker">교실/학원 좌석 추첨 도구</p>
           <h1 id="app-title">seat-picker</h1>
         </div>
         <div className="header-side">
-          <p className="app-description">
-            좌석 설정, 학생 명단, 선호 구역을 한 흐름에서 입력하고 재현 가능한
-            좌석 배정을 만듭니다.
-          </p>
           <VersionSelector />
         </div>
+        <p className="app-description">
+          좌석 설정, 학생 명단, 선호 구역을 한 흐름에서 입력하고 재현 가능한 좌석
+          배정을 만듭니다.
+        </p>
       </header>
 
       <nav className="step-nav" aria-label="진행 단계">

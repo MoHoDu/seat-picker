@@ -61,9 +61,13 @@ button:disabled {
 
 .app-header {
   display: grid;
-  grid-template-columns: minmax(220px, 0.7fr) minmax(280px, 1.3fr);
-  gap: 20px;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 10px 20px;
   align-items: end;
+}
+
+.header-title {
+  min-width: 0;
 }
 
 .app-kicker {
@@ -82,9 +86,11 @@ button:disabled {
 }
 
 .app-description {
+  grid-column: 1 / -1;
   margin: 0;
   color: #586575;
   line-height: 1.7;
+  max-width: 920px;
 }
 
 .step-nav {
@@ -722,6 +728,8 @@ button.seat-cell {
 .header-side {
   display: grid;
   gap: 12px;
+  justify-self: end;
+  align-self: center;
 }
 
 .version-selector {
@@ -747,6 +755,10 @@ button.result-seat {
   .playback-toolbar,
   .preference-row {
     grid-template-columns: 1fr;
+  }
+
+  .header-side {
+    justify-self: start;
   }
 
   .step-nav,
