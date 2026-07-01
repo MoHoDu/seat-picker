@@ -1029,6 +1029,10 @@ function DrawingStep(props: {
   const displaySeatLabel = displaySeat
     ? formatSeatLabel(displaySeat)
     : displaySeatId;
+  const currentDrawStudentName =
+    phase === "zone-intro" || phase === "student-spin"
+      ? "???"
+      : selectedStudentName;
   const visibleStudentIdBySeatId = getVisibleStudentIdBySeatId({
     steps: props.result.steps,
     completedStepCount: state.completedStepCount,
@@ -1277,8 +1281,8 @@ function DrawingStep(props: {
             <div>
               <p>{phase === "completed" ? "추첨 완료" : "현재 추첨"}</p>
               <strong>
-                {selectedStudentName
-                  ? `${selectedStudentName} → ${selectedSeatLabel}`
+                {currentDrawStudentName
+                  ? `${currentDrawStudentName} → ${selectedSeatLabel}`
                   : "배정할 단계가 없습니다"}
               </strong>
             </div>

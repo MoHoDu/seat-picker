@@ -373,10 +373,12 @@ describe("App", () => {
     await advanceTimersUntil(() => {
       expect(screen.getByText("학생 슬롯")).toBeInTheDocument();
     });
+    expect(screen.getByText("??? → 앞자리")).toBeInTheDocument();
 
     await advanceTimersUntil(() => {
       expect(screen.getByText("자리 슬롯")).toBeInTheDocument();
     });
+    expect(screen.queryByText("??? → 앞자리")).not.toBeInTheDocument();
     expect(screen.getByLabelText(/현재 룰렛 좌석/)).toBeInTheDocument();
 
     await advanceTimersUntil(() => {
