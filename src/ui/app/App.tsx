@@ -1602,7 +1602,7 @@ function ResultStep(props: {
           <dd>{result.seed}</dd>
         </div>
         <div>
-          <dt>1순위 배정</dt>
+          <dt>선호 좌석 배정</dt>
           <dd>{result.summary.primaryAssignedCount}</dd>
         </div>
         <div>

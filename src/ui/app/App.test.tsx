@@ -90,6 +90,8 @@ describe("App", () => {
     expect(
       within(dialog).getByText(/밀려온 학생이 기존 선호자를 밀어내지 않도록/),
     ).toBeInTheDocument();
+    expect(within(dialog).getByText(/선호 좌석 배정으로 변경/))
+      .toBeInTheDocument();
 
     await user.click(dialog);
 
@@ -252,7 +254,8 @@ describe("App", () => {
       screen.getByRole("button", { name: "PNG 저장 위치/이름 선택" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 뽑기" })).toBeInTheDocument();
-    expect(screen.getByText("1순위 배정")).toBeInTheDocument();
+    expect(screen.getByText("선호 좌석 배정")).toBeInTheDocument();
+    expect(screen.queryByText("1순위 배정")).not.toBeInTheDocument();
     expect(screen.getByText("선호 외 좌석 배정")).toBeInTheDocument();
     expect(screen.queryByText("1차 이동")).not.toBeInTheDocument();
     expect(screen.queryByText("2차 이동")).not.toBeInTheDocument();
