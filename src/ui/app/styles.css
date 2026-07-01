@@ -733,7 +733,13 @@ button.seat-cell {
 }
 
 .version-selector {
-  max-width: 220px;
+  display: inline-grid;
+  grid-template-columns: auto minmax(140px, 180px);
+  gap: 8px;
+  align-items: center;
+  color: #334155;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .version-selector select {
