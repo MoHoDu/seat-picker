@@ -42,17 +42,12 @@ async function main() {
   log(`Preparing ${PAGES_BRANCH} worktree`);
   run("git", ["fetch", "origin", PAGES_BRANCH], { cwd: repoRoot });
 
-  if (!hasLocalBranch(PAGES_BRANCH)) {
-    run("git", ["branch", PAGES_BRANCH, "FETCH_HEAD"], { cwd: repoRoot });
-  }
-
   const pagesDir = mkdtempSync(join(tmpdir(), "seat-picker-pages-"));
   let worktreeAdded = false;
 
   try {
-    run("git", ["worktree", "add", pagesDir, PAGES_BRANCH], { cwd: repoRoot });
+    run("git", ["worktree", "add", "--detach", pagesDir, "FETCH_HEAD"], { cwd: repoRoot });
     worktreeAdded = true;
-    run("git", ["merge", "--ff-only", "FETCH_HEAD"], { cwd: pagesDir });
 
     if (isLatest) {
       cleanLatestRoot(pagesDir);
@@ -78,7 +73,7 @@ async function main() {
     run("git", ["commit", "-m", `deploy: Update ${target} pages build`], {
       cwd: pagesDir,
     });
-    run("git", ["push", "origin", PAGES_BRANCH], { cwd: pagesDir });
+    run("git", ["push", "origin", `HEAD:${PAGES_BRANCH}`], { cwd: pagesDir });
 
     log(`Deployed ${target} to ${isLatest ? REPO_PAGES_BASE : basePath}`);
   } finally {
@@ -98,15 +93,6 @@ function cleanLatestRoot(pagesDir) {
 
     rmSync(join(pagesDir, entry), { recursive: true, force: true });
   }
-}
-
-function hasLocalBranch(branchName) {
-  const result = spawnSync("git", ["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`], {
-    cwd: repoRoot,
-    stdio: "ignore",
-  });
-
-  return result.status === 0;
 }
 
 function execGit(args, cwd) {
