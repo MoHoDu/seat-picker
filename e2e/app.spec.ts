@@ -8,8 +8,8 @@ test("runs the core teacher flow from setup to result", async ({ page }) => {
   await page.getByRole("button", { name: "다음" }).click();
   await enterStudents(page, ["김민준", "이서연", "김민준"]);
 
-  await expect(page.getByText("김민준 01")).toBeVisible();
-  await expect(page.getByText("김민준 02")).toBeVisible();
+  await expect(page.getByRole("group", { name: "김민준 01" })).toBeVisible();
+  await expect(page.getByRole("group", { name: "김민준 02" })).toBeVisible();
 
   await page.getByRole("radio", { name: "김민준 01 앞자리" }).check();
   await page.getByRole("radio", { name: "이서연 중간자리" }).check();
@@ -47,7 +47,7 @@ test("restores saved progress after refresh", async ({ page }) => {
   await page.reload();
 
   await expect(page.getByRole("heading", { name: "선호 선택" })).toBeVisible();
-  await expect(page.getByText("김민준")).toBeVisible();
+  await expect(page.getByRole("group", { name: "김민준" })).toBeVisible();
   await expect(page.getByRole("radio", { name: "김민준 앞자리" })).toBeChecked();
 });
 

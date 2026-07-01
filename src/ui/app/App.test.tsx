@@ -130,12 +130,16 @@ describe("App", () => {
       screen.getByRole("button", { name: "명단 적용 및 선호 선택" }),
     );
 
-    expect(screen.getByText("김민준 01")).toBeInTheDocument();
-    expect(screen.getByText("김민준 02")).toBeInTheDocument();
+    expect(screen.getAllByText("김민준 01").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("김민준 02").length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("radio", { name: "김민준 01 앞자리" }));
     await user.click(screen.getByRole("radio", { name: "이서연 중간자리" }));
     await user.click(screen.getByRole("radio", { name: "김민준 02 무선호" }));
+    await user.selectOptions(
+      screen.getByLabelText("김민준 01 옆자리 희망"),
+      "student-2",
+    );
     await user.click(screen.getByRole("button", { name: "추첨 시작" }));
 
     expect(
@@ -153,8 +157,15 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 뽑기" })).toBeInTheDocument();
     expect(screen.getByText("1순위 배정")).toBeInTheDocument();
+    expect(screen.getByText("옆자리 희망 충족")).toBeInTheDocument();
     expect(screen.getAllByText("김민준").length).toBeGreaterThan(0);
     expect(screen.getByText("이서연")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(localStorage.getItem("seat-picker:v1:project")).toContain(
+        '"adjacentStudentId":"student-2"',
+      );
+    });
   });
 
   it("swaps two assigned students on the result page and stores the adjusted result", async () => {
@@ -211,7 +222,7 @@ describe("App", () => {
     expect(
       screen.getByRole("heading", { name: "선호 선택" })
     ).toBeInTheDocument();
-    expect(screen.getByText("김민준")).toBeInTheDocument();
+    expect(screen.getAllByText("김민준").length).toBeGreaterThan(0);
     expect(screen.getByRole("radio", { name: "김민준 앞자리" })).toBeChecked();
   });
 

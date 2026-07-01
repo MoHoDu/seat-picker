@@ -56,6 +56,7 @@ export class AssignmentEngine {
         assignedStudentIds,
         assignedSeatIds,
         assignedStudentIdBySeatId,
+        studentsById,
         random,
         steps,
         enqueueZone,
@@ -72,20 +73,62 @@ export class AssignmentEngine {
       assignedStudentIds,
       assignedSeatIds,
       assignedStudentIdBySeatId,
+      studentsById,
       random,
       steps,
       zoneSequenceIndex,
     });
 
+    const seats = this.buildAssignedSeats(
+      input.seatLayout.getSeats(),
+      assignedStudentIdBySeatId,
+      studentsById
+    );
+
     return {
       seed: input.seed,
-      seats: this.buildAssignedSeats(
-        input.seatLayout.getSeats(),
-        assignedStudentIdBySeatId,
-        studentsById
-      ),
+      seats,
       steps,
-      summary: this.createSummary(steps, availableSeatsByZone),
+      summary: this.createSummary(steps, availableSeatsByZone, seats),
+    };
+  }
+
+  static calculateAdjacentPreferenceStats(
+    seats: readonly AssignedSeat[]
+  ): Pick<
+    AssignmentSummary,
+    "adjacentPreferenceCount" | "adjacentPreferenceSatisfiedCount"
+  > {
+    const assignedSeatByStudentId = new Map<StudentId, AssignedSeat>();
+
+    for (const seat of seats) {
+      if (seat.student) {
+        assignedSeatByStudentId.set(seat.student.id, seat);
+      }
+    }
+
+    let adjacentPreferenceCount = 0;
+    let adjacentPreferenceSatisfiedCount = 0;
+
+    for (const seat of seats) {
+      const adjacentStudentId = seat.student?.adjacentStudentId;
+
+      if (!adjacentStudentId) {
+        continue;
+      }
+
+      adjacentPreferenceCount += 1;
+
+      const adjacentSeat = assignedSeatByStudentId.get(adjacentStudentId);
+
+      if (adjacentSeat && AssignmentEngine.areHorizontalNeighbors(seat, adjacentSeat)) {
+        adjacentPreferenceSatisfiedCount += 1;
+      }
+    }
+
+    return {
+      adjacentPreferenceCount,
+      adjacentPreferenceSatisfiedCount,
     };
   }
 
@@ -127,6 +170,7 @@ export class AssignmentEngine {
     assignedStudentIds: Set<StudentId>;
     assignedSeatIds: Set<SeatId>;
     assignedStudentIdBySeatId: Map<SeatId, StudentId>;
+    studentsById: Map<StudentId, Student>;
     random: SeededRandom;
     steps: AssignmentStep[];
     enqueueZone: (zone: Zone) => void;
@@ -139,6 +183,7 @@ export class AssignmentEngine {
       assignedStudentIds,
       assignedSeatIds,
       assignedStudentIdBySeatId,
+      studentsById,
       random,
       steps,
       enqueueZone,
@@ -159,7 +204,13 @@ export class AssignmentEngine {
         activeCandidates,
         (candidate) => candidate.weight
       );
-      const selectedSeat = this.takeRandomSeat(availableSeatsByZone[zone], random);
+      const selectedSeat = this.takeWeightedSeat({
+        seats: availableSeatsByZone[zone],
+        studentId: selectedCandidate.studentId,
+        studentsById,
+        assignedStudentIdBySeatId,
+        random,
+      });
 
       this.recordAssignment({
         studentId: selectedCandidate.studentId,
@@ -218,6 +269,7 @@ export class AssignmentEngine {
     assignedStudentIds: Set<StudentId>;
     assignedSeatIds: Set<SeatId>;
     assignedStudentIdBySeatId: Map<SeatId, StudentId>;
+    studentsById: Map<StudentId, Student>;
     random: SeededRandom;
     steps: AssignmentStep[];
     zoneSequenceIndex: number;
@@ -228,6 +280,7 @@ export class AssignmentEngine {
       assignedStudentIds,
       assignedSeatIds,
       assignedStudentIdBySeatId,
+      studentsById,
       random,
       steps,
     } = options;
@@ -246,9 +299,12 @@ export class AssignmentEngine {
       }
 
       const remainingSeats = this.getRemainingSeats(availableSeatsByZone);
-      const selectedSeat = this.takeRandomRemainingSeat(
+      const selectedSeat = this.takeWeightedRemainingSeat(
         availableSeatsByZone,
         remainingSeats,
+        selectedStudent.id,
+        studentsById,
+        assignedStudentIdBySeatId,
         random
       );
 
@@ -354,8 +410,12 @@ export class AssignmentEngine {
 
   private createSummary(
     steps: readonly AssignmentStep[],
-    availableSeatsByZone: AvailableSeatsByZone
+    availableSeatsByZone: AvailableSeatsByZone,
+    seats: readonly AssignedSeat[]
   ): AssignmentSummary {
+    const adjacentStats =
+      AssignmentEngine.calculateAdjacentPreferenceStats(seats);
+
     return {
       primaryAssignedCount: steps.filter((step) => step.reason === "primary").length,
       firstOverflowAssignedCount: steps.filter(
@@ -367,6 +427,9 @@ export class AssignmentEngine {
       unpreferredAssignedCount: steps.filter(
         (step) => step.reason === "unpreferred"
       ).length,
+      adjacentPreferenceCount: adjacentStats.adjacentPreferenceCount,
+      adjacentPreferenceSatisfiedCount:
+        adjacentStats.adjacentPreferenceSatisfiedCount,
       emptySeatCount: this.getRemainingSeats(availableSeatsByZone).length,
       manualSwapCount: 0,
     };
@@ -402,9 +465,25 @@ export class AssignmentEngine {
     });
   }
 
-  private takeRandomSeat(seats: Seat[], random: SeededRandom): Seat {
-    const selectedIndex = random.nextInt(seats.length);
-    const [selectedSeat] = seats.splice(selectedIndex, 1);
+  private takeWeightedSeat(options: {
+    seats: Seat[];
+    studentId: StudentId;
+    studentsById: Map<StudentId, Student>;
+    assignedStudentIdBySeatId: Map<SeatId, StudentId>;
+    random: SeededRandom;
+  }): Seat {
+    const weightedSeat = options.random.weightedPick(options.seats, (seat) =>
+      this.getAdjacentSeatWeight({
+        seat,
+        studentId: options.studentId,
+        studentsById: options.studentsById,
+        assignedStudentIdBySeatId: options.assignedStudentIdBySeatId,
+      })
+    );
+    const selectedIndex = options.seats.findIndex(
+      (seat) => seat.id === weightedSeat.id
+    );
+    const [selectedSeat] = options.seats.splice(selectedIndex, 1);
 
     if (!selectedSeat) {
       throw new Error("No seat is available.");
@@ -413,12 +492,22 @@ export class AssignmentEngine {
     return selectedSeat;
   }
 
-  private takeRandomRemainingSeat(
+  private takeWeightedRemainingSeat(
     availableSeatsByZone: AvailableSeatsByZone,
     remainingSeats: readonly Seat[],
+    studentId: StudentId,
+    studentsById: Map<StudentId, Student>,
+    assignedStudentIdBySeatId: Map<SeatId, StudentId>,
     random: SeededRandom
   ): Seat {
-    const selectedSeat = random.pick(remainingSeats);
+    const selectedSeat = random.weightedPick(remainingSeats, (seat) =>
+      this.getAdjacentSeatWeight({
+        seat,
+        studentId,
+        studentsById,
+        assignedStudentIdBySeatId,
+      })
+    );
     const zoneSeats = availableSeatsByZone[selectedSeat.zone];
     const seatIndex = zoneSeats.findIndex((seat) => seat.id === selectedSeat.id);
 
@@ -429,6 +518,55 @@ export class AssignmentEngine {
     zoneSeats.splice(seatIndex, 1);
 
     return selectedSeat;
+  }
+
+  private getAdjacentSeatWeight(options: {
+    seat: Seat;
+    studentId: StudentId;
+    studentsById: Map<StudentId, Student>;
+    assignedStudentIdBySeatId: Map<SeatId, StudentId>;
+  }): number {
+    const baseWeight = 1;
+    const adjacentBonus = 2;
+    const student = options.studentsById.get(options.studentId);
+    let weight = baseWeight;
+
+    for (const adjacentSeatId of this.getHorizontalAdjacentSeatIds(options.seat)) {
+      const adjacentStudentId =
+        options.assignedStudentIdBySeatId.get(adjacentSeatId);
+
+      if (!adjacentStudentId) {
+        continue;
+      }
+
+      const adjacentStudent = options.studentsById.get(adjacentStudentId);
+
+      if (student?.adjacentStudentId === adjacentStudentId) {
+        weight += adjacentBonus;
+      }
+
+      if (adjacentStudent?.adjacentStudentId === options.studentId) {
+        weight += adjacentBonus;
+      }
+    }
+
+    return weight;
+  }
+
+  private getHorizontalAdjacentSeatIds(
+    seat: Pick<Seat, "row" | "column">
+  ): SeatId[] {
+    return [
+      SeatLayout.createSeatId(seat.row, seat.column - 1),
+      SeatLayout.createSeatId(seat.row, seat.column + 1),
+    ];
+  }
+
+  private static areHorizontalNeighbors(
+    left: Pick<Seat, "row" | "column">,
+    right: Pick<Seat, "row" | "column">
+  ): boolean {
+    return left.row === right.row && Math.abs(left.column - right.column) === 1;
   }
 
   private getRemainingSeats(availableSeatsByZone: AvailableSeatsByZone): Seat[] {

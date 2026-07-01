@@ -408,7 +408,59 @@ describe("AssignmentEngine", () => {
     expect(summaryAssignedCount).toBe(assignedSeatCount);
     expect(result.steps).toHaveLength(assignedSeatCount);
     expect(result.summary.emptySeatCount).toBe(emptyAvailableSeatCount);
+    expect(result.summary.adjacentPreferenceCount).toBe(0);
+    expect(result.summary.adjacentPreferenceSatisfiedCount).toBe(0);
     expect(result.summary.manualSwapCount).toBe(0);
+  });
+
+  it("weights seat choices toward horizontal adjacent preferences", () => {
+    const engine = new AssignmentEngine();
+    let satisfiedCount = 0;
+    const runCount = 90;
+
+    for (let index = 0; index < runCount; index += 1) {
+      const result = engine.assign({
+        students: [
+          { id: "student-1", name: "A", preference: "front" },
+          {
+            id: "student-2",
+            name: "B",
+            preference: "front",
+            adjacentStudentId: "student-1",
+          },
+        ],
+        seatLayout: createSeatLayout({ rows: 1, columns: 3 }),
+        seed: `adjacent-weight-${index}`,
+      });
+
+      satisfiedCount += result.summary.adjacentPreferenceSatisfiedCount;
+    }
+
+    expect(satisfiedCount).toBeGreaterThan(70);
+  });
+
+  it("counts directed adjacent preferences in the summary", () => {
+    const result = new AssignmentEngine().assign({
+      students: [
+        {
+          id: "student-1",
+          name: "A",
+          preference: "front",
+          adjacentStudentId: "student-2",
+        },
+        {
+          id: "student-2",
+          name: "B",
+          preference: "front",
+          adjacentStudentId: "student-1",
+        },
+      ],
+      seatLayout: createSeatLayout({ rows: 1, columns: 2 }),
+      seed: "mutual-adjacent",
+    });
+
+    expect(result.summary.adjacentPreferenceCount).toBe(2);
+    expect(result.summary.adjacentPreferenceSatisfiedCount).toBe(2);
   });
 
   it("does not mutate input students or seat layout state", () => {

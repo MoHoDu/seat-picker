@@ -41,6 +41,8 @@ export type AssignmentSummary = {
   firstOverflowAssignedCount: number;
   secondOverflowAssignedCount: number;
   unpreferredAssignedCount: number;
+  adjacentPreferenceCount: number;
+  adjacentPreferenceSatisfiedCount: number;
   emptySeatCount: number;
   manualSwapCount: number;
 };

@@ -350,9 +350,9 @@ button.seat-cell {
 
 .preference-row {
   display: grid;
-  grid-template-columns: minmax(120px, 0.35fr) minmax(280px, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
-  align-items: center;
+  align-items: stretch;
   margin: 0;
   padding: 12px;
   border: 1px solid #d8e0e8;
@@ -363,6 +363,31 @@ button.seat-cell {
   padding: 0;
   color: #172033;
   font-weight: 800;
+}
+
+.adjacent-select {
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.adjacent-select select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #cbd5df;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #172033;
+  padding: 0 10px;
+  font: inherit;
+}
+
+.adjacent-select select:disabled {
+  background: #eef2f6;
+  color: #7c8795;
+  cursor: not-allowed;
 }
 
 .segmented-control {

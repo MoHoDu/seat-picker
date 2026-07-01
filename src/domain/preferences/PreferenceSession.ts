@@ -60,11 +60,13 @@ export class PreferenceSession {
     studentId: StudentId,
     preference: PreferenceZone,
     source: PreferenceSource,
-    submittedAt?: string
+    submittedAt?: string,
+    adjacentStudentId?: StudentId | null
   ): PreferenceSession {
     return this.submit({
       studentId,
       preference,
+      ...(adjacentStudentId !== undefined ? { adjacentStudentId } : {}),
       source,
       ...(submittedAt !== undefined ? { submittedAt } : {}),
     });
@@ -72,6 +74,10 @@ export class PreferenceSession {
 
   submit(submission: PreferenceSubmission): PreferenceSession {
     this.assertKnownStudentId(submission.studentId);
+    this.assertValidAdjacentStudentId(
+      submission.studentId,
+      submission.adjacentStudentId
+    );
 
     return new PreferenceSession({
       students: this.students,
@@ -144,10 +150,16 @@ export class PreferenceSession {
     return this.students.map((student) => {
       const submission = this.submissionsByStudentId.get(student.id);
 
-      return {
+      const nextStudent: Student = {
         ...student,
         preference: submission ? submission.preference : null,
       };
+
+      if (submission?.adjacentStudentId !== undefined) {
+        nextStudent.adjacentStudentId = submission.adjacentStudentId;
+      }
+
+      return nextStudent;
     });
   }
 
@@ -157,8 +169,7 @@ export class PreferenceSession {
 
   private normalizeStudents(students: readonly Student[]): Student[] {
     const studentIds = new Set<StudentId>();
-
-    return students.map((student) => {
+    const normalizedStudents = students.map((student) => {
       const name = student.name.trim();
 
       if (name.length === 0) {
@@ -177,6 +188,16 @@ export class PreferenceSession {
         preference: student.preference ?? null,
       };
     });
+
+    for (const student of normalizedStudents) {
+      this.assertValidAdjacentStudentId(
+        student.id,
+        student.adjacentStudentId,
+        studentIds
+      );
+    }
+
+    return normalizedStudents;
   }
 
   private createSubmissionMap(
@@ -186,6 +207,10 @@ export class PreferenceSession {
 
     for (const submission of submissions) {
       this.assertKnownStudentId(submission.studentId);
+      this.assertValidAdjacentStudentId(
+        submission.studentId,
+        submission.adjacentStudentId
+      );
       submissionMap.set(submission.studentId, this.cloneSubmission(submission));
     }
 
@@ -198,12 +223,35 @@ export class PreferenceSession {
     }
   }
 
+  private assertValidAdjacentStudentId(
+    studentId: StudentId,
+    adjacentStudentId: StudentId | null | undefined,
+    knownStudentIds: ReadonlySet<StudentId> = new Set(
+      this.students.map((student) => student.id)
+    )
+  ): void {
+    if (adjacentStudentId === undefined || adjacentStudentId === null) {
+      return;
+    }
+
+    if (adjacentStudentId === studentId) {
+      throw new Error("Adjacent preference cannot target the same student.");
+    }
+
+    if (!knownStudentIds.has(adjacentStudentId)) {
+      throw new Error(`Unknown adjacent student id: ${adjacentStudentId}`);
+    }
+  }
+
   private cloneSubmission(
     submission: PreferenceSubmission
   ): PreferenceSubmission {
     return {
       studentId: submission.studentId,
       preference: submission.preference,
+      ...(submission.adjacentStudentId !== undefined
+        ? { adjacentStudentId: submission.adjacentStudentId }
+        : {}),
       source: submission.source,
       ...(submission.submittedAt !== undefined
         ? { submittedAt: submission.submittedAt }

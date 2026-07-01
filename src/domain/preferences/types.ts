@@ -18,6 +18,7 @@ export type PreferenceSessionProgress = {
 export type PreferenceSubmission = {
   studentId: StudentId;
   preference: PreferenceZone;
+  adjacentStudentId?: StudentId | null;
   source: PreferenceSource;
   submittedAt?: string;
 };

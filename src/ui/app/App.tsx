@@ -274,12 +274,43 @@ export function App() {
       return;
     }
 
-    const nextSession = preferenceSession.submitPreference(
+    const currentSubmission = preferenceSession.getSubmission(studentId);
+    const nextSession = preferenceSession.submit({
       studentId,
       preference,
-      "teacher",
-    );
+      adjacentStudentId: currentSubmission?.adjacentStudentId ?? null,
+      source: "teacher",
+    });
 
+    setProject((current) => ({
+      ...current,
+      preferenceSubmissions: nextSession.getSubmissions(),
+      assignmentResult: null,
+    }));
+  };
+
+  const submitAdjacentPreference = (
+    studentId: StudentId,
+    adjacentStudentId: StudentId | null,
+  ) => {
+    if (!preferenceSession) {
+      return;
+    }
+
+    const currentSubmission = preferenceSession.getSubmission(studentId);
+
+    if (!currentSubmission) {
+      setMessage("먼저 구역 선호를 선택하세요.");
+      return;
+    }
+
+    const nextSession = preferenceSession.submit({
+      ...currentSubmission,
+      adjacentStudentId,
+      source: "teacher",
+    });
+
+    setMessage(null);
     setProject((current) => ({
       ...current,
       preferenceSubmissions: nextSession.getSubmissions(),
@@ -470,6 +501,7 @@ export function App() {
           preferenceSession={preferenceSession}
           validation={preferenceValidation}
           onPreferenceChange={submitPreference}
+          onAdjacentPreferenceChange={submitAdjacentPreference}
           onFillPending={fillPendingAsUnpreferred}
           onSeedChange={(seed) =>
             setProject((current) => ({
@@ -717,6 +749,10 @@ function PreferenceSelectionStep(props: {
     studentId: StudentId,
     preference: PreferenceZone,
   ) => void;
+  onAdjacentPreferenceChange: (
+    studentId: StudentId,
+    adjacentStudentId: StudentId | null,
+  ) => void;
   onFillPending: () => void;
   onSeedChange: (seed: string) => void;
   onBack: () => void;
@@ -771,6 +807,7 @@ function PreferenceSelectionStep(props: {
       <div className="preference-list">
         {props.studentDisplays.map((student) => {
           const submission = props.preferenceSession.getSubmission(student.id);
+          const hasSubmittedPreference = submission !== undefined;
 
           return (
             <fieldset key={student.id} className="preference-row">
@@ -801,6 +838,31 @@ function PreferenceSelectionStep(props: {
                   );
                 })}
               </div>
+              <label className="adjacent-select">
+                옆자리 희망
+                <select
+                  aria-label={`${student.displayName} 옆자리 희망`}
+                  disabled={!hasSubmittedPreference}
+                  value={submission?.adjacentStudentId ?? ""}
+                  onChange={(event) =>
+                    props.onAdjacentPreferenceChange(
+                      student.id,
+                      event.currentTarget.value.length > 0
+                        ? event.currentTarget.value
+                        : null,
+                    )
+                  }
+                >
+                  <option value="">없음</option>
+                  {props.studentDisplays
+                    .filter((candidate) => candidate.id !== student.id)
+                    .map((candidate) => (
+                      <option key={candidate.id} value={candidate.id}>
+                        {candidate.displayName}
+                      </option>
+                    ))}
+                </select>
+              </label>
             </fieldset>
           );
         })}
@@ -1447,6 +1509,13 @@ function ResultStep(props: {
           <dd>{result.summary.unpreferredAssignedCount}</dd>
         </div>
         <div>
+          <dt>옆자리 희망 충족</dt>
+          <dd>
+            {result.summary.adjacentPreferenceSatisfiedCount}/
+            {result.summary.adjacentPreferenceCount}
+          </dd>
+        </div>
+        <div>
           <dt>빈 좌석</dt>
           <dd>{result.summary.emptySeatCount}</dd>
         </div>
@@ -1652,25 +1721,28 @@ function swapAssignedStudents(
 
   const firstStudent = { ...firstSeat.student };
   const secondStudent = { ...secondSeat.student };
+  const seats = result.seats.map((seat) => {
+    if (seat.id === firstSeatId) {
+      return { ...seat, student: secondStudent };
+    }
+
+    if (seat.id === secondSeatId) {
+      return { ...seat, student: firstStudent };
+    }
+
+    return {
+      ...seat,
+      ...(seat.student ? { student: { ...seat.student } } : {}),
+    };
+  });
+  const adjacentStats = AssignmentEngine.calculateAdjacentPreferenceStats(seats);
 
   return {
     ...result,
-    seats: result.seats.map((seat) => {
-      if (seat.id === firstSeatId) {
-        return { ...seat, student: secondStudent };
-      }
-
-      if (seat.id === secondSeatId) {
-        return { ...seat, student: firstStudent };
-      }
-
-      return {
-        ...seat,
-        ...(seat.student ? { student: { ...seat.student } } : {}),
-      };
-    }),
+    seats,
     summary: {
       ...result.summary,
+      ...adjacentStats,
       manualSwapCount: result.summary.manualSwapCount + 1,
     },
   };

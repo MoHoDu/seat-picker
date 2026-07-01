@@ -57,7 +57,12 @@ describe("SeatPickerProjectState", () => {
 
   it("converts to and restores from plain storage data", () => {
     const students: Student[] = [
-      { id: "student-1", name: "A", preference: "front" },
+      {
+        id: "student-1",
+        name: "A",
+        preference: "front",
+        adjacentStudentId: "student-2",
+      },
       { id: "student-2", name: "B", preference: null },
     ];
     const seatLayout = new SeatLayout({
@@ -75,7 +80,12 @@ describe("SeatPickerProjectState", () => {
       zoneRows: { frontRows: 1, middleRows: 0, backRows: 1 },
       students,
       preferenceSubmissions: [
-        { studentId: "student-1", preference: "front", source: "teacher" },
+        {
+          studentId: "student-1",
+          preference: "front",
+          adjacentStudentId: "student-2",
+          source: "teacher",
+        },
       ],
       seed: "stored-seed",
       assignmentResult,
@@ -94,5 +104,9 @@ describe("SeatPickerProjectState", () => {
       createPreferenceSessionFromState(restored).getSubmission("student-1")
         ?.preference
     ).toBe("front");
+    expect(
+      createPreferenceSessionFromState(restored).getSubmission("student-1")
+        ?.adjacentStudentId
+    ).toBe("student-2");
   });
 });

@@ -51,6 +51,28 @@ describe("PreferenceSession", () => {
     ]);
   });
 
+  it("submits adjacent student preferences with zone preferences", () => {
+    const session = new PreferenceSession({ students: createStudents() }).submit({
+      studentId: "student-1",
+      preference: "front",
+      adjacentStudentId: "student-2",
+      source: "teacher",
+    });
+
+    expect(session.getSubmission("student-1")).toEqual({
+      studentId: "student-1",
+      preference: "front",
+      adjacentStudentId: "student-2",
+      source: "teacher",
+    });
+    expect(session.applyToStudents()[0]).toEqual({
+      id: "student-1",
+      name: "A",
+      preference: "front",
+      adjacentStudentId: "student-2",
+    });
+  });
+
   it("treats an explicit null preference as submitted, not pending", () => {
     const session = new PreferenceSession({ students: createStudents() })
       .submitPreference("student-1", null, "shared-device");
@@ -112,6 +134,28 @@ describe("PreferenceSession", () => {
     expect(() =>
       session.submitPreference("student-999", "front", "teacher")
     ).toThrow("Unknown student");
+  });
+
+  it("rejects adjacent preferences for self or unknown students", () => {
+    const session = new PreferenceSession({ students: createStudents() });
+
+    expect(() =>
+      session.submit({
+        studentId: "student-1",
+        preference: "front",
+        adjacentStudentId: "student-1",
+        source: "teacher",
+      })
+    ).toThrow("same student");
+
+    expect(() =>
+      session.submit({
+        studentId: "student-1",
+        preference: "front",
+        adjacentStudentId: "student-999",
+        source: "teacher",
+      })
+    ).toThrow("Unknown adjacent student");
   });
 
   it("rejects duplicate student ids", () => {

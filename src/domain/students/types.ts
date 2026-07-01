@@ -6,6 +6,7 @@ export type Student = {
   id: StudentId;
   name: string;
   preference: PreferenceZone;
+  adjacentStudentId?: StudentId | null;
 };
 
 export type StudentDisplay = Student & {
