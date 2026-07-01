@@ -732,6 +732,18 @@ button.seat-cell {
   align-self: center;
 }
 
+.version-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.patch-note-button {
+  padding: 0 14px;
+}
+
 .version-selector {
   display: inline-grid;
   grid-template-columns: auto minmax(140px, 180px);
@@ -750,6 +762,77 @@ button.seat-cell {
   padding: 0 10px;
 }
 
+.patch-note-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.patch-note-dialog {
+  display: grid;
+  gap: 18px;
+  width: min(720px, 100%);
+  max-height: min(720px, calc(100vh - 48px));
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
+}
+
+.patch-note-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.patch-note-header h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 1.45rem;
+  letter-spacing: 0;
+}
+
+.patch-note-content {
+  display: grid;
+  gap: 10px;
+  color: #334155;
+  line-height: 1.7;
+}
+
+.patch-note-content h2,
+.patch-note-content h3,
+.patch-note-content h4,
+.patch-note-content p,
+.patch-note-content ul {
+  margin: 0;
+}
+
+.patch-note-content h2,
+.patch-note-content h3 {
+  margin-top: 8px;
+  color: #173f38;
+  font-size: 1.08rem;
+  letter-spacing: 0;
+}
+
+.patch-note-content h4 {
+  color: #245b50;
+  font-size: 1rem;
+}
+
+.patch-note-content ul {
+  display: grid;
+  gap: 8px;
+  padding-left: 20px;
+}
+
 button.result-seat {
   background: #f8fafc;
   color: #172033;
@@ -765,6 +848,10 @@ button.result-seat {
 
   .header-side {
     justify-self: start;
+  }
+
+  .version-controls {
+    justify-content: flex-start;
   }
 
   .step-nav,

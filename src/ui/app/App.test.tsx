@@ -7,8 +7,18 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+
+const versionManifest = {
+  latest: "v1.2",
+  versions: [
+    { label: "최신", path: "/seat-picker/" },
+    { label: "v1.2", path: "/seat-picker/versions/v1.2/" },
+    { label: "v1.1", path: "/seat-picker/versions/v1.1/" },
+    { label: "v1.0", path: "/seat-picker/versions/v1.0/" },
+  ],
+};
 
 async function advanceTimersUntil(
   assertion: () => void,
@@ -38,7 +48,19 @@ async function advanceTimersUntil(
 }
 
 describe("App", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          json: () => Promise.resolve(versionManifest),
+        }),
+      ),
+    );
+  });
+
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 
@@ -50,6 +72,46 @@ describe("App", () => {
       screen.getByRole("heading", { name: "좌석 설정" })
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다음" })).toBeInTheDocument();
+  });
+
+  it("opens and closes the current version patch notes", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const patchNoteButton = await screen.findByRole("button", {
+      name: "패치 노트 보기",
+    });
+
+    await user.click(patchNoteButton);
+
+    const dialog = screen.getByRole("dialog", { name: "v1.2 패치 노트" });
+    expect(within(dialog).getByRole("heading", { name: "수정" }))
+      .toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/밀려온 학생이 기존 선호자를 밀어내지 않도록/),
+    ).toBeInTheDocument();
+
+    await user.click(dialog);
+
+    expect(screen.getByRole("dialog", { name: "v1.2 패치 노트" }))
+      .toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "닫기" }));
+
+    expect(screen.queryByRole("dialog", { name: "v1.2 패치 노트" }))
+      .not.toBeInTheDocument();
+
+    await user.click(patchNoteButton);
+    await user.click(screen.getByTestId("patch-note-overlay"));
+
+    expect(screen.queryByRole("dialog", { name: "v1.2 패치 노트" }))
+      .not.toBeInTheDocument();
+
+    await user.click(patchNoteButton);
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog", { name: "v1.2 패치 노트" }))
+      .not.toBeInTheDocument();
   });
 
   it("disables seat setup progression when zone rows do not match total rows", () => {
