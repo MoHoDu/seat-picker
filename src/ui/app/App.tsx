@@ -275,12 +275,33 @@ export function App() {
     }
 
     const currentSubmission = preferenceSession.getSubmission(studentId);
-    const nextSession = preferenceSession.submit({
+    const adjacentStudentId = currentSubmission?.adjacentStudentId ?? null;
+    const adjacentSubmission = adjacentStudentId
+      ? preferenceSession.getSubmission(adjacentStudentId)
+      : undefined;
+    const nextAdjacentStudentId =
+      adjacentStudentId &&
+      canSelectAdjacentPreference(preference, adjacentSubmission?.preference)
+        ? adjacentStudentId
+        : null;
+    let nextSession = preferenceSession.submit({
       studentId,
       preference,
-      adjacentStudentId: currentSubmission?.adjacentStudentId ?? null,
+      adjacentStudentId: nextAdjacentStudentId,
       source: "teacher",
     });
+
+    if (
+      nextAdjacentStudentId &&
+      preference !== null &&
+      adjacentSubmission?.preference === null
+    ) {
+      nextSession = nextSession.submit({
+        ...adjacentSubmission,
+        preference,
+        source: "teacher",
+      });
+    }
 
     setProject((current) => ({
       ...current,
@@ -304,11 +325,43 @@ export function App() {
       return;
     }
 
-    const nextSession = preferenceSession.submit({
+    const adjacentSubmission = adjacentStudentId
+      ? preferenceSession.getSubmission(adjacentStudentId)
+      : undefined;
+
+    if (adjacentStudentId && !adjacentSubmission) {
+      setMessage("옆자리 희망 학생의 구역 선호를 먼저 선택하세요.");
+      return;
+    }
+
+    if (
+      adjacentStudentId &&
+      !canSelectAdjacentPreference(
+        currentSubmission.preference,
+        adjacentSubmission?.preference,
+      )
+    ) {
+      setMessage("같은 구역 선호 또는 무선호 학생만 선택할 수 있습니다.");
+      return;
+    }
+
+    let nextSession = preferenceSession.submit({
       ...currentSubmission,
       adjacentStudentId,
       source: "teacher",
     });
+
+    if (
+      adjacentStudentId &&
+      currentSubmission.preference !== null &&
+      adjacentSubmission?.preference === null
+    ) {
+      nextSession = nextSession.submit({
+        ...adjacentSubmission,
+        preference: currentSubmission.preference,
+        source: "teacher",
+      });
+    }
 
     setMessage(null);
     setProject((current) => ({
@@ -808,6 +861,20 @@ function PreferenceSelectionStep(props: {
         {props.studentDisplays.map((student) => {
           const submission = props.preferenceSession.getSubmission(student.id);
           const hasSubmittedPreference = submission !== undefined;
+          const adjacentCandidates = getAdjacentCandidateDisplays({
+            currentStudentId: student.id,
+            currentPreference: submission?.preference,
+            preferenceSession: props.preferenceSession,
+            studentDisplays: props.studentDisplays,
+          });
+          const adjacentStudentId = submission?.adjacentStudentId ?? "";
+          const adjacentValue =
+            adjacentStudentId.length > 0 &&
+            adjacentCandidates.some(
+              (candidate) => candidate.id === adjacentStudentId,
+            )
+              ? adjacentStudentId
+              : "";
 
           return (
             <fieldset key={student.id} className="preference-row">
@@ -843,7 +910,7 @@ function PreferenceSelectionStep(props: {
                 <select
                   aria-label={`${student.displayName} 옆자리 희망`}
                   disabled={!hasSubmittedPreference}
-                  value={submission?.adjacentStudentId ?? ""}
+                  value={adjacentValue}
                   onChange={(event) =>
                     props.onAdjacentPreferenceChange(
                       student.id,
@@ -854,13 +921,11 @@ function PreferenceSelectionStep(props: {
                   }
                 >
                   <option value="">없음</option>
-                  {props.studentDisplays
-                    .filter((candidate) => candidate.id !== student.id)
-                    .map((candidate) => (
-                      <option key={candidate.id} value={candidate.id}>
-                        {candidate.displayName}
-                      </option>
-                    ))}
+                  {adjacentCandidates.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.displayName}
+                    </option>
+                  ))}
                 </select>
               </label>
             </fieldset>
@@ -868,6 +933,46 @@ function PreferenceSelectionStep(props: {
         })}
       </div>
     </section>
+  );
+}
+
+function getAdjacentCandidateDisplays(options: {
+  currentStudentId: StudentId;
+  currentPreference: PreferenceZone | undefined;
+  preferenceSession: NonNullable<
+    ReturnType<typeof createPreferenceSessionFromState>
+  >;
+  studentDisplays: ReturnType<StudentRoster["getDisplays"]>;
+}): ReturnType<StudentRoster["getDisplays"]> {
+  const currentPreference = options.currentPreference;
+
+  if (currentPreference === undefined) {
+    return [];
+  }
+
+  return options.studentDisplays.filter((candidate) => {
+    if (candidate.id === options.currentStudentId) {
+      return false;
+    }
+
+    const candidatePreference = options.preferenceSession.getSubmission(
+      candidate.id,
+    )?.preference;
+
+    return canSelectAdjacentPreference(currentPreference, candidatePreference);
+  });
+}
+
+function canSelectAdjacentPreference(
+  currentPreference: PreferenceZone,
+  candidatePreference: PreferenceZone | undefined,
+): boolean {
+  if (candidatePreference === undefined) {
+    return false;
+  }
+
+  return (
+    candidatePreference === currentPreference || candidatePreference === null
   );
 }
 

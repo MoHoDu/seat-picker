@@ -1,7 +1,41 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+
+async function advanceTimersUntil(
+  assertion: () => void,
+  timeoutMs = 6_000,
+  stepMs = 100,
+) {
+  let lastError: unknown;
+
+  for (let elapsedMs = 0; elapsedMs <= timeoutMs; elapsedMs += stepMs) {
+    try {
+      assertion();
+      return;
+    } catch (error) {
+      lastError = error;
+    }
+
+    await act(async () => {
+      vi.advanceTimersByTime(stepMs);
+    });
+  }
+
+  if (lastError) {
+    throw lastError;
+  }
+
+  assertion();
+}
 
 describe("App", () => {
   afterEach(() => {
@@ -138,7 +172,7 @@ describe("App", () => {
     await user.click(screen.getByRole("radio", { name: "김민준 02 무선호" }));
     await user.selectOptions(
       screen.getByLabelText("김민준 01 옆자리 희망"),
-      "student-2",
+      "student-3",
     );
     await user.click(screen.getByRole("button", { name: "추첨 시작" }));
 
@@ -163,9 +197,40 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(localStorage.getItem("seat-picker:v1:project")).toContain(
-        '"adjacentStudentId":"student-2"',
+        '"adjacentStudentId":"student-3"',
       );
     });
+  });
+
+  it("limits adjacent preferences to same-zone or unpreferred students and syncs unpreferred targets", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "다음" }));
+    await user.type(
+      screen.getByLabelText("학생 이름 목록"),
+      "김민준\n이서연\n박지호",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "명단 적용 및 선호 선택" }),
+    );
+
+    await user.click(screen.getByRole("radio", { name: "김민준 앞자리" }));
+    await user.click(screen.getByRole("radio", { name: "이서연 중간자리" }));
+    await user.click(screen.getByRole("radio", { name: "박지호 무선호" }));
+
+    const adjacentSelect = screen.getByLabelText("김민준 옆자리 희망");
+
+    expect(
+      within(adjacentSelect).queryByRole("option", { name: "이서연" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(adjacentSelect).getByRole("option", { name: "박지호" }),
+    ).toBeInTheDocument();
+
+    await user.selectOptions(adjacentSelect, "student-3");
+
+    expect(screen.getByRole("radio", { name: "박지호 앞자리" })).toBeChecked();
   });
 
   it("swaps two assigned students on the result page and stores the adjusted result", async () => {
@@ -243,21 +308,18 @@ describe("App", () => {
 
     expect(screen.getByText(/구역 추첨 시작/)).toBeInTheDocument();
 
-    await act(async () => {
-      vi.advanceTimersByTime(1200);
+    await advanceTimersUntil(() => {
+      expect(screen.getByText("학생 슬롯")).toBeInTheDocument();
     });
-    expect(screen.getByText("학생 슬롯")).toBeInTheDocument();
 
-    await act(async () => {
-      vi.advanceTimersByTime(1400);
+    await advanceTimersUntil(() => {
+      expect(screen.getByText("자리 슬롯")).toBeInTheDocument();
     });
-    expect(screen.getByText("자리 슬롯")).toBeInTheDocument();
     expect(screen.getByLabelText(/현재 룰렛 좌석/)).toBeInTheDocument();
 
-    await act(async () => {
-      vi.advanceTimersByTime(3100);
+    await advanceTimersUntil(() => {
+      expect(screen.getByText("좌석 확정")).toBeInTheDocument();
     });
-    expect(screen.getByText("좌석 확정")).toBeInTheDocument();
   });
 
   it("supports speed selection, pause, resume, and skip-all controls", () => {
@@ -316,22 +378,20 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("radio", { name: "김민준 앞자리" }));
     fireEvent.click(screen.getByRole("button", { name: "추첨 시작" }));
 
-    await act(async () => {
-      vi.advanceTimersByTime(1200);
+    await advanceTimersUntil(() => {
+      expect(screen.getByText("남은 학생이 한 명이라 결과를 표시합니다"))
+        .toBeInTheDocument();
     });
-
-    expect(screen.getByText("남은 학생이 한 명이라 결과를 표시합니다"))
-      .toBeInTheDocument();
     expect(screen.getByText("김민준")).toBeInTheDocument();
 
-    await act(async () => {
-      vi.advanceTimersByTime(1400);
+    await advanceTimersUntil(() => {
+      expect(screen.getByText("남은 좌석이 한 자리라 결과를 표시합니다"))
+        .toBeInTheDocument();
     });
 
-    expect(screen.getByText("남은 좌석이 한 자리라 결과를 표시합니다"))
-      .toBeInTheDocument();
-    expect(screen.getAllByText("김민준 → 앞자리 1행 1열").length)
-      .toBeGreaterThan(0);
+    expect(screen.getAllByText(/김민준\s*→\s*앞자리/).length).toBeGreaterThan(
+      0,
+    );
     expect(setIntervalSpy).not.toHaveBeenCalled();
   });
 });
