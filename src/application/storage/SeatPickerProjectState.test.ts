@@ -25,7 +25,7 @@ describe("SeatPickerProjectState", () => {
       unavailableSeatIds: [],
       students: [],
       preferenceSubmissions: [],
-      seed: "seat-picker-v1",
+      seed: "seed-0001",
       assignmentResult: null,
     });
     expect(createSeatLayoutFromState(state).getAvailableSeatCount()).toBe(30);
@@ -51,7 +51,7 @@ describe("SeatPickerProjectState", () => {
         frontRows: 1,
         middleRows: 1,
         backRows: 1,
-      })
+      }),
     ).toThrow("add up");
   });
 
@@ -99,14 +99,16 @@ describe("SeatPickerProjectState", () => {
     expect(restored.students[0]?.name).toBe("A");
     expect(restored.assignmentResult?.seats[0]?.student?.name).toBe("A");
     expect(createSeatLayoutFromState(restored).getAvailableSeatCount()).toBe(2);
-    expect(createStudentRosterFromState(restored).getStudents()).toEqual(students);
+    expect(createStudentRosterFromState(restored).getStudents()).toEqual(
+      students,
+    );
     expect(
       createPreferenceSessionFromState(restored).getSubmission("student-1")
-        ?.preference
+        ?.preference,
     ).toBe("front");
     expect(
       createPreferenceSessionFromState(restored).getSubmission("student-1")
-        ?.adjacentStudentId
+        ?.adjacentStudentId,
     ).toBe("student-2");
   });
 });

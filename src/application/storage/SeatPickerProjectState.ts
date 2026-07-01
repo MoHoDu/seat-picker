@@ -33,10 +33,10 @@ const DEFAULT_GRID: GridConfig = {
   columns: 6,
 };
 
-const DEFAULT_SEED: Seed = "seat-picker-v1";
+const DEFAULT_SEED: Seed = "seed-0001";
 
 export function createDefaultProjectState(
-  overrides: Partial<SeatPickerProjectState> = {}
+  overrides: Partial<SeatPickerProjectState> = {},
 ): SeatPickerProjectState {
   const grid = overrides.grid ?? DEFAULT_GRID;
   const zoneRows =
@@ -67,7 +67,7 @@ export function createDefaultProjectState(
 
 export function updateProjectGrid(
   state: SeatPickerProjectState,
-  grid: GridConfig
+  grid: GridConfig,
 ): SeatPickerProjectState {
   ZoneLayoutPolicy.validateGrid(grid);
 
@@ -94,7 +94,7 @@ export function updateProjectGrid(
 
 export function updateProjectZoneRows(
   state: SeatPickerProjectState,
-  zoneRows: ZoneRowConfig
+  zoneRows: ZoneRowConfig,
 ): SeatPickerProjectState {
   ZoneLayoutPolicy.validateZoneRows(zoneRows, state.grid.rows);
 
@@ -109,7 +109,7 @@ export function createSeatLayoutFromState(
   state: Pick<
     SeatPickerProjectState,
     "grid" | "zoneRows" | "unavailableSeatIds"
-  >
+  >,
 ): SeatLayout {
   return new SeatLayout({
     grid: state.grid,
@@ -119,13 +119,13 @@ export function createSeatLayoutFromState(
 }
 
 export function createStudentRosterFromState(
-  state: Pick<SeatPickerProjectState, "students">
+  state: Pick<SeatPickerProjectState, "students">,
 ): StudentRoster {
   return new StudentRoster(state.students);
 }
 
 export function createPreferenceSessionFromState(
-  state: Pick<SeatPickerProjectState, "students" | "preferenceSubmissions">
+  state: Pick<SeatPickerProjectState, "students" | "preferenceSubmissions">,
 ): PreferenceSession {
   return new PreferenceSession({
     students: state.students,
@@ -134,13 +134,13 @@ export function createPreferenceSessionFromState(
 }
 
 export function toStoredSeatPickerProject(
-  state: SeatPickerProjectState
+  state: SeatPickerProjectState,
 ): StoredSeatPickerProject {
   return cloneState(state);
 }
 
 export function restoreSeatPickerProject(
-  stored: StoredSeatPickerProject
+  stored: StoredSeatPickerProject,
 ): SeatPickerProjectState {
   return createDefaultProjectState(stored);
 }

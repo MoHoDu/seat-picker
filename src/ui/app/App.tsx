@@ -92,8 +92,8 @@ const normalAnimationDurations: AnimationDurations = {
 
 const animationTimeScale: Record<AnimationSpeed, number> = {
   fast: 0.5,
-  normal: 1,
-  slow: 1.5,
+  normal: 1.5,
+  slow: 2.5,
 };
 
 export function App() {
@@ -497,8 +497,8 @@ export function App() {
           <VersionSelector />
         </div>
         <p className="app-description">
-          좌석 설정, 학생 명단, 선호 구역을 한 흐름에서 입력하고 재현 가능한 좌석
-          배정을 만듭니다.
+          좌석 설정, 학생 명단, 선호 구역을 한 흐름에서 입력하고 재현 가능한
+          좌석 배정을 만듭니다.
         </p>
       </header>
 
@@ -1860,13 +1860,13 @@ function toPositiveInteger(value: string): number {
 }
 
 function createRerollSeed(): string {
-  return `seat-picker-${Date.now()}`;
+  return `seed-${Date.now()}`;
 }
 
 function createResultFileName(seed: string): string {
   const safeSeed = seed.replace(/[^a-z0-9가-힣_-]+/gi, "-");
 
-  return `seat-picker-${safeSeed}.png`;
+  return `seed-${safeSeed}.png`;
 }
 
 function getFirstBlockingMessage(
