@@ -542,6 +542,28 @@ button.seat-cell {
   transform: translateY(-2px);
 }
 
+.draw-stage.seat-spin .drawing-seat.active-roulette {
+  border-color: #0f766e;
+  background: linear-gradient(180deg, #d8fff4 0%, #a7f3e6 100%);
+  color: #0f172a;
+  box-shadow:
+    0 0 0 2px #0f766e,
+    0 0 0 6px rgba(248, 209, 96, 0.82),
+    0 16px 34px rgba(15, 118, 110, 0.34),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.78);
+  transform: translateY(-4px) scale(1.035);
+}
+
+.draw-stage.seat-spin .drawing-seat.active-roulette span,
+.draw-stage.seat-spin .drawing-seat.active-roulette small {
+  color: #134e4a;
+}
+
+.draw-stage.seat-spin .drawing-seat.active-roulette strong {
+  color: #0f172a;
+  font-weight: 900;
+}
+
 .drawing-seat.current-fixed {
   border-color: #50b18f;
   box-shadow:
