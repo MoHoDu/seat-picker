@@ -25,7 +25,9 @@ test("runs the core teacher flow from setup to result", async ({ page }) => {
   await expect(page.getByText("1순위 배정")).toBeVisible();
   await expect(page.getByText("무선호 배정")).toBeVisible();
   await expect(page.getByText("김민준").first()).toBeVisible();
-  await expect(page.getByText("이서연")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /이서연 .* 자리 선택/ }),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "PNG 저장 위치/이름 선택" }),
   ).toBeVisible();
@@ -46,6 +48,33 @@ test("restores saved progress after refresh", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: "선호 선택" })).toBeVisible();
   await expect(page.getByText("김민준")).toBeVisible();
+  await expect(page.getByRole("radio", { name: "김민준 앞자리" })).toBeChecked();
+});
+
+test("resets seat setup without clearing the roster preferences", async ({ page }) => {
+  await openFreshProject(page);
+
+  await setGrid(page, 3, 4);
+  await page.getByRole("button", { name: "다음" }).click();
+  await enterStudents(page, ["김민준", "이서연"]);
+  await page.getByRole("radio", { name: "김민준 앞자리" }).check();
+  await page
+    .getByRole("navigation", { name: "진행 단계" })
+    .getByRole("button", { name: /좌석 설정/ })
+    .click();
+  await page.getByRole("button", { name: "좌석 설정 초기화" }).click();
+
+  await expect(page.getByRole("spinbutton", { name: "행" })).toHaveValue("5");
+  await expect(page.getByRole("spinbutton", { name: "열" })).toHaveValue("6");
+  await expect(
+    page.getByText("전체 30석 · 사용 가능 30석 · 사용 불가 0석"),
+  ).toBeVisible();
+
+  await page
+    .getByRole("navigation", { name: "진행 단계" })
+    .getByRole("button", { name: /선호 선택/ })
+    .click();
+
   await expect(page.getByRole("radio", { name: "김민준 앞자리" })).toBeChecked();
 });
 
@@ -72,9 +101,24 @@ test("does not assign students to unavailable seats", async ({ page }) => {
     hasText: "1-2",
   });
 
-  await expect(unavailableSeat).toContainText("빈 자리");
-  await expect(unavailableSeat).not.toContainText("김민준");
-  await expect(availableSeat).toContainText("김민준");
+  await expect(unavailableSeat.locator("strong")).toHaveText("빈 자리");
+  await expect(availableSeat.locator("strong")).toHaveText("김민준");
+});
+
+test("swaps two assigned students on the result page", async ({ page }) => {
+  await openFreshProject(page);
+  await startDrawingWithStudents(page, ["김민준", "이서연"]);
+  await completeDrawing(page);
+
+  await page.getByRole("button", { name: /김민준 .* 자리 선택/ }).click();
+  await page.getByRole("button", { name: /이서연 .* 자리 선택/ }).click();
+
+  await expect(
+    page.getByText("김민준 ↔ 이서연 자리 교체를 완료했습니다."),
+  ).toBeVisible();
+  await expect
+    .poll(() => page.evaluate((key) => localStorage.getItem(key), storageKey))
+    .toContain('"manualSwapCount":1');
 });
 
 test("supports playback pause, resume, and skip controls", async ({ page }) => {

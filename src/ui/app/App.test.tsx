@@ -56,6 +56,35 @@ describe("App", () => {
     ).toBeDisabled();
   });
 
+  it("resets only seat setup while preserving students and preferences", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("행"), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByLabelText("열"), {
+      target: { value: "4" },
+    });
+    await user.click(screen.getByRole("button", { name: "다음" }));
+    await user.type(screen.getByLabelText("학생 이름 목록"), "김민준\n이서연");
+    await user.click(
+      screen.getByRole("button", { name: "명단 적용 및 선호 선택" }),
+    );
+    await user.click(screen.getByRole("radio", { name: "김민준 앞자리" }));
+    await user.click(screen.getByRole("button", { name: /좌석 설정/ }));
+    await user.click(screen.getByRole("button", { name: "좌석 설정 초기화" }));
+
+    expect(screen.getByRole("spinbutton", { name: "행" })).toHaveValue(5);
+    expect(screen.getByRole("spinbutton", { name: "열" })).toHaveValue(6);
+    expect(screen.getByText("전체 30석 · 사용 가능 30석 · 사용 불가 0석"))
+      .toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /선호 선택/ }));
+
+    expect(screen.getByRole("radio", { name: "김민준 앞자리" })).toBeChecked();
+  });
+
   it("requires pending preferences and an empty seed to be resolved before drawing", async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -128,6 +157,39 @@ describe("App", () => {
     expect(screen.getByText("이서연")).toBeInTheDocument();
   });
 
+  it("swaps two assigned students on the result page and stores the adjusted result", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByRole("button", { name: "다음" }));
+    await user.type(screen.getByLabelText("학생 이름 목록"), "김민준\n이서연");
+    await user.click(
+      screen.getByRole("button", { name: "명단 적용 및 선호 선택" }),
+    );
+    await user.click(screen.getByRole("radio", { name: "김민준 앞자리" }));
+    await user.click(screen.getByRole("radio", { name: "이서연 앞자리" }));
+    await user.click(screen.getByRole("button", { name: "추첨 시작" }));
+    await user.click(screen.getByRole("button", { name: "결과 보기" }));
+
+    await user.click(
+      screen.getByRole("button", { name: /김민준 .* 자리 선택/ }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /이서연 .* 자리 선택/ }),
+    );
+
+    expect(
+      screen.getByText("김민준 ↔ 이서연 자리 교체를 완료했습니다."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("수동 교체")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(localStorage.getItem("seat-picker:v1:project")).toContain(
+        '"manualSwapCount":1',
+      );
+    });
+  });
+
   it("restores the saved project after remounting the app", async () => {
     const user = userEvent.setup();
     const rendered = render(<App />);
@@ -179,6 +241,7 @@ describe("App", () => {
       vi.advanceTimersByTime(1400);
     });
     expect(screen.getByText("자리 슬롯")).toBeInTheDocument();
+    expect(screen.getByLabelText(/현재 룰렛 좌석/)).toBeInTheDocument();
 
     await act(async () => {
       vi.advanceTimersByTime(3100);
@@ -256,7 +319,8 @@ describe("App", () => {
 
     expect(screen.getByText("남은 좌석이 한 자리라 결과를 표시합니다"))
       .toBeInTheDocument();
-    expect(screen.getAllByText("김민준 → 1-1").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("김민준 → 앞자리 1행 1열").length)
+      .toBeGreaterThan(0);
     expect(setIntervalSpy).not.toHaveBeenCalled();
   });
 });

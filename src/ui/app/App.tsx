@@ -4,9 +4,11 @@ import {
   AssignmentPlaybackController,
   SeatLayout,
   StudentRoster,
+  type AssignedSeat,
   type AnimationSpeed,
   type AssignmentResult,
   type PreferenceZone,
+  type Seat,
   type SeatId,
   type StudentId,
   type Zone,
@@ -223,6 +225,21 @@ export function App() {
     });
   };
 
+  const resetSeatSetup = () => {
+    const defaults = createDefaultProjectState();
+
+    setPlayback(null);
+    setMessage(null);
+    setProject((current) => ({
+      ...current,
+      step: "seat-setup",
+      grid: defaults.grid,
+      zoneRows: defaults.zoneRows,
+      unavailableSeatIds: [],
+      assignmentResult: null,
+    }));
+  };
+
   const moveFromSeatSetup = () => {
     if (!seatSetupValidation.canContinue) {
       setMessage(getFirstBlockingMessage(seatSetupValidation.issues));
@@ -371,6 +388,23 @@ export function App() {
     runAssignment(createRerollSeed());
   };
 
+  const swapResultSeats = (firstSeatId: SeatId, secondSeatId: SeatId) => {
+    setProject((current) => {
+      if (!current.assignmentResult) {
+        return current;
+      }
+
+      return {
+        ...current,
+        assignmentResult: swapAssignedStudents(
+          current.assignmentResult,
+          firstSeatId,
+          secondSeatId,
+        ),
+      };
+    });
+  };
+
   return (
     <main className="app-shell">
       <header className="app-header" aria-labelledby="app-title">
@@ -413,6 +447,7 @@ export function App() {
           }}
           onZoneRowChange={setZoneRowCount}
           onToggleUnavailableSeat={toggleUnavailableSeat}
+          onReset={resetSeatSetup}
           onNext={moveFromSeatSetup}
         />
       ) : null}
@@ -451,6 +486,7 @@ export function App() {
       {project.step === "drawing" && project.assignmentResult ? (
         <DrawingStep
           result={project.assignmentResult}
+          columns={project.grid.columns}
           playback={playback}
           studentsById={new Map(project.students.map((student) => [student.id, student]))}
           onPlaybackChange={setPlayback}
@@ -464,6 +500,7 @@ export function App() {
           result={project.assignmentResult}
           columns={project.grid.columns}
           onBack={() => goToStep("drawing")}
+          onSwapSeats={swapResultSeats}
           onReroll={rerollAssignment}
           onRestart={resetProject}
         />
@@ -482,6 +519,7 @@ function SeatSetupStep(props: {
     value: number,
   ) => void;
   onToggleUnavailableSeat: (seatId: SeatId) => void;
+  onReset: () => void;
   onNext: () => void;
 }) {
   const { project, seatLayout, validation } = props;
@@ -493,13 +531,18 @@ function SeatSetupStep(props: {
           <p>1단계</p>
           <h2 id="seat-setup-title">좌석 설정</h2>
         </div>
-        <button
-          type="button"
-          disabled={!validation.canContinue}
-          onClick={props.onNext}
-        >
-          다음
-        </button>
+        <div className="button-row">
+          <button type="button" className="secondary" onClick={props.onReset}>
+            좌석 설정 초기화
+          </button>
+          <button
+            type="button"
+            disabled={!validation.canContinue}
+            onClick={props.onNext}
+          >
+            다음
+          </button>
+        </div>
       </div>
 
       <div className="control-grid">
@@ -752,6 +795,7 @@ function PreferenceSelectionStep(props: {
 
 function DrawingStep(props: {
   result: AssignmentResult;
+  columns: number;
   playback: AssignmentPlaybackController | null;
   studentsById: Map<StudentId, { name: string }>;
   onPlaybackChange: (controller: AssignmentPlaybackController) => void;
@@ -775,10 +819,10 @@ function DrawingStep(props: {
     currentStep?.selectedSeatId ?? null,
   );
   const selectedStudentName = state.currentStep
-    ? props.studentsById.get(state.currentStep.selectedStudentId)?.name
+    ? (props.studentsById.get(state.currentStep.selectedStudentId)?.name ?? null)
     : null;
   const displayStudentName = displayStudentId
-    ? props.studentsById.get(displayStudentId)?.name
+    ? (props.studentsById.get(displayStudentId)?.name ?? null)
     : null;
   const zoneStepNumber = currentStep ? currentStep.zoneSequenceIndex + 1 : 0;
   const isFirstStepInZone = currentStep
@@ -790,6 +834,25 @@ function DrawingStep(props: {
   const shouldSpinStudents =
     (currentStep?.candidateStudentIds.length ?? 0) > 1;
   const shouldSpinSeats = (currentStep?.candidateSeatIds.length ?? 0) > 1;
+  const selectedSeat = currentStep
+    ? findSeat(props.result.seats, currentStep.selectedSeatId)
+    : undefined;
+  const displaySeat = displaySeatId
+    ? findSeat(props.result.seats, displaySeatId)
+    : undefined;
+  const selectedSeatLabel = selectedSeat
+    ? formatSeatLabel(selectedSeat)
+    : state.currentStep?.selectedSeatId;
+  const displaySeatLabel = displaySeat
+    ? formatSeatLabel(displaySeat)
+    : displaySeatId;
+  const visibleStudentIdBySeatId = getVisibleStudentIdBySeatId({
+    steps: props.result.steps,
+    completedStepCount: state.completedStepCount,
+    currentStep: currentStep ?? undefined,
+    phase,
+    isCompleted,
+  });
 
   useEffect(() => {
     if (!currentStep) {
@@ -1026,17 +1089,38 @@ function DrawingStep(props: {
       </div>
 
       <div className={`draw-stage ${phase}`}>
-        <div className="draw-panel">
-          <p>{phase === "completed" ? "추첨 완료" : "현재 추첨"}</p>
-          <strong>
-            {selectedStudentName
-              ? `${selectedStudentName} → ${state.currentStep?.selectedSeatId}`
-              : "배정할 단계가 없습니다"}
-          </strong>
-          <span>
-            {state.currentZone ? zoneLabels[state.currentZone] : "전체"} ·{" "}
-            {state.completedStepCount}/{state.totalStepCount}
-          </span>
+        <div className="draw-board-panel" aria-label="추첨 좌석표">
+          <div className="draw-board-heading">
+            <div>
+              <p>{phase === "completed" ? "추첨 완료" : "현재 추첨"}</p>
+              <strong>
+                {selectedStudentName
+                  ? `${selectedStudentName} → ${selectedSeatLabel}`
+                  : "배정할 단계가 없습니다"}
+              </strong>
+            </div>
+            <span>
+              {state.currentZone ? zoneLabels[state.currentZone] : "전체"} ·{" "}
+              {state.completedStepCount}/{state.totalStepCount}
+            </span>
+          </div>
+
+          <DrawingSeatGrid
+            seats={props.result.seats}
+            columns={props.columns}
+            assignedStudentIdBySeatId={visibleStudentIdBySeatId}
+            studentsById={props.studentsById}
+            candidateSeatIds={
+              phase === "seat-spin" && currentStep
+                ? currentStep.candidateSeatIds
+                : []
+            }
+            activeSeatId={phase === "seat-spin" ? displaySeatId : null}
+            fixedSeatId={
+              phase === "fixed" && currentStep ? currentStep.selectedSeatId : null
+            }
+            rouletteStudentName={displayStudentName ?? selectedStudentName}
+          />
         </div>
 
         <div className="draw-popup" role="status" aria-live="polite">
@@ -1067,11 +1151,11 @@ function DrawingStep(props: {
               <p>자리 슬롯</p>
               <strong className={shouldSpinSeats ? "slot-value spinning" : "slot-value"}>
                 {displayStudentName ?? selectedStudentName} →{" "}
-                {displaySeatId ?? "좌석 선택 중"}
+                {displaySeatLabel ?? "좌석 선택 중"}
               </strong>
               <span>
                 {shouldSpinSeats
-                  ? "구역 안에서 좌석이 바뀝니다"
+                  ? "좌석표에서 후보 좌석이 바뀝니다"
                   : "남은 좌석이 한 자리라 결과를 표시합니다"}
               </span>
             </>
@@ -1081,7 +1165,7 @@ function DrawingStep(props: {
             <>
               <p>좌석 확정</p>
               <strong className="slot-value">
-                {selectedStudentName} → {currentStep.selectedSeatId}
+                {selectedStudentName} → {selectedSeatLabel}
               </strong>
               <span>다음 학생으로 넘어갑니다</span>
             </>
@@ -1140,10 +1224,75 @@ function DrawingStep(props: {
   );
 }
 
+function DrawingSeatGrid(props: {
+  seats: readonly AssignedSeat[];
+  columns: number;
+  assignedStudentIdBySeatId: Map<SeatId, StudentId>;
+  studentsById: Map<StudentId, { name: string }>;
+  candidateSeatIds: readonly SeatId[];
+  activeSeatId: SeatId | null;
+  fixedSeatId: SeatId | null;
+  rouletteStudentName: string | null;
+}) {
+  const candidateSeatIdSet = new Set(props.candidateSeatIds);
+
+  return (
+    <div
+      className="seat-grid drawing-seat-grid"
+      style={{
+        gridTemplateColumns: `repeat(${props.columns}, minmax(52px, 1fr))`,
+      }}
+    >
+      {props.seats.map((seat) => {
+        const assignedStudentId = props.assignedStudentIdBySeatId.get(seat.id);
+        const assignedStudentName = assignedStudentId
+          ? props.studentsById.get(assignedStudentId)?.name
+          : null;
+        const isActiveRoulette = props.activeSeatId === seat.id;
+        const isCandidate = candidateSeatIdSet.has(seat.id);
+        const isFixed = props.fixedSeatId === seat.id;
+        const displayName =
+          isActiveRoulette && props.rouletteStudentName
+            ? props.rouletteStudentName
+            : assignedStudentName;
+        const className = [
+          "seat-cell",
+          "drawing-seat",
+          seat.zone,
+          seat.status,
+          assignedStudentName ? "assigned" : "",
+          isCandidate ? "candidate" : "",
+          isActiveRoulette ? "active-roulette" : "",
+          isFixed ? "current-fixed" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        return (
+          <div
+            key={seat.id}
+            className={className}
+            aria-label={
+              isActiveRoulette
+                ? `현재 룰렛 좌석 ${formatSeatLabel(seat)}`
+                : formatSeatLabel(seat)
+            }
+          >
+            <span>{formatSeatLabel(seat)}</span>
+            <strong>{displayName ?? "빈 자리"}</strong>
+            <small>{seat.id}</small>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ResultStep(props: {
   result: AssignmentResult;
   columns: number;
   onBack: () => void;
+  onSwapSeats: (firstSeatId: SeatId, secondSeatId: SeatId) => void;
   onReroll: () => void;
   onRestart: () => void;
 }) {
@@ -1152,6 +1301,10 @@ function ResultStep(props: {
   const exporter = useMemo(() => new SeatMapExporter(), []);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedSwapSeatId, setSelectedSwapSeatId] = useState<SeatId | null>(
+    null,
+  );
+  const [swapMessage, setSwapMessage] = useState<string | null>(null);
 
   const exportPng = async () => {
     if (!seatMapRef.current) {
@@ -1175,6 +1328,45 @@ function ResultStep(props: {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const selectSeatForSwap = (seat: AssignedSeat) => {
+    if (!seat.student) {
+      setSwapMessage("학생이 배정된 좌석 두 개를 선택하세요.");
+      return;
+    }
+
+    if (selectedSwapSeatId === null) {
+      setSelectedSwapSeatId(seat.id);
+      setSwapMessage(
+        `${seat.student.name} 학생을 선택했습니다. 바꿀 학생의 좌석을 선택하세요.`,
+      );
+      return;
+    }
+
+    if (selectedSwapSeatId === seat.id) {
+      setSelectedSwapSeatId(null);
+      setSwapMessage("자리 교체 선택을 취소했습니다.");
+      return;
+    }
+
+    const firstSeat = result.seats.find(
+      (candidate) => candidate.id === selectedSwapSeatId,
+    );
+
+    if (!firstSeat?.student) {
+      setSelectedSwapSeatId(seat.id);
+      setSwapMessage(
+        `${seat.student.name} 학생을 선택했습니다. 바꿀 학생의 좌석을 선택하세요.`,
+      );
+      return;
+    }
+
+    props.onSwapSeats(firstSeat.id, seat.id);
+    setSelectedSwapSeatId(null);
+    setSwapMessage(
+      `${firstSeat.student.name} ↔ ${seat.student.name} 자리 교체를 완료했습니다.`,
+    );
   };
 
   return (
@@ -1232,7 +1424,19 @@ function ResultStep(props: {
           <dt>빈 좌석</dt>
           <dd>{result.summary.emptySeatCount}</dd>
         </div>
+        <div>
+          <dt>수동 교체</dt>
+          <dd>{result.summary.manualSwapCount}</dd>
+        </div>
       </dl>
+
+      <div className="swap-guide">
+        <strong>자리 교체</strong>
+        <p className="hint">
+          학생이 배정된 좌석 두 개를 차례로 선택하면 서로 자리가 바뀝니다.
+        </p>
+        {swapMessage ? <p className="hint">{swapMessage}</p> : null}
+      </div>
 
       <div
         ref={seatMapRef}
@@ -1242,13 +1446,59 @@ function ResultStep(props: {
         }}
       >
         {result.seats.map((seat) => (
-          <div key={seat.id} className={`seat-cell ${seat.zone} ${seat.status}`}>
-            <span>{seat.id}</span>
-            <strong>{seat.student?.name ?? "빈 자리"}</strong>
-          </div>
+          <ResultSeatCell
+            key={seat.id}
+            seat={seat}
+            seats={result.seats}
+            isSelectedForSwap={selectedSwapSeatId === seat.id}
+            onSelectForSwap={selectSeatForSwap}
+          />
         ))}
       </div>
     </section>
+  );
+}
+
+function ResultSeatCell(props: {
+  seat: AssignedSeat;
+  seats: readonly AssignedSeat[];
+  isSelectedForSwap: boolean;
+  onSelectForSwap: (seat: AssignedSeat) => void;
+}) {
+  const { seat } = props;
+  const className = [
+    "seat-cell",
+    "result-seat",
+    seat.zone,
+    seat.status,
+    seat.student ? "swappable" : "",
+    props.isSelectedForSwap ? "selected-for-swap" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const content = (
+    <>
+      <span>{formatSeatLabel(seat)}</span>
+      <strong>{seat.student?.name ?? "빈 자리"}</strong>
+      <small>{seat.id}</small>
+      <small>{formatHorizontalNeighbors(seat, props.seats)}</small>
+    </>
+  );
+
+  if (!seat.student) {
+    return <div className={className}>{content}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      className={className}
+      aria-pressed={props.isSelectedForSwap}
+      aria-label={`${seat.student.name} ${formatSeatLabel(seat)} 자리 선택`}
+      onClick={() => props.onSelectForSwap(seat)}
+    >
+      {content}
+    </button>
   );
 }
 
@@ -1299,6 +1549,105 @@ function SeatGrid(props: {
       })}
     </div>
   );
+}
+
+function formatSeatLabel(seat: Pick<Seat, "row" | "column" | "zone">): string {
+  return `${zoneLabels[seat.zone]} ${seat.row}행 ${seat.column}열`;
+}
+
+function findSeat(
+  seats: readonly AssignedSeat[],
+  seatId: SeatId,
+): AssignedSeat | undefined {
+  return seats.find((seat) => seat.id === seatId);
+}
+
+function formatHorizontalNeighbors(
+  seat: AssignedSeat,
+  seats: readonly AssignedSeat[],
+): string {
+  const leftSeat = seats.find(
+    (candidate) =>
+      candidate.row === seat.row && candidate.column === seat.column - 1,
+  );
+  const rightSeat = seats.find(
+    (candidate) =>
+      candidate.row === seat.row && candidate.column === seat.column + 1,
+  );
+  const neighbors = [
+    leftSeat?.student ? `왼쪽 ${leftSeat.student.name}` : null,
+    rightSeat?.student ? `오른쪽 ${rightSeat.student.name}` : null,
+  ].filter((neighbor): neighbor is string => neighbor !== null);
+
+  return neighbors.length > 0 ? neighbors.join(" · ") : "옆자리 정보 없음";
+}
+
+function getVisibleStudentIdBySeatId(options: {
+  steps: AssignmentResult["steps"];
+  completedStepCount: number;
+  currentStep: AssignmentResult["steps"][number] | undefined;
+  phase: DrawAnimationPhase;
+  isCompleted: boolean;
+}): Map<SeatId, StudentId> {
+  const visibleSteps = options.isCompleted
+    ? options.steps
+    : options.steps.slice(0, options.completedStepCount);
+  const visibleStudentIdBySeatId = new Map<SeatId, StudentId>();
+
+  for (const step of visibleSteps) {
+    visibleStudentIdBySeatId.set(step.selectedSeatId, step.selectedStudentId);
+  }
+
+  if (options.phase === "fixed" && options.currentStep) {
+    visibleStudentIdBySeatId.set(
+      options.currentStep.selectedSeatId,
+      options.currentStep.selectedStudentId,
+    );
+  }
+
+  return visibleStudentIdBySeatId;
+}
+
+function swapAssignedStudents(
+  result: AssignmentResult,
+  firstSeatId: SeatId,
+  secondSeatId: SeatId,
+): AssignmentResult {
+  if (firstSeatId === secondSeatId) {
+    return result;
+  }
+
+  const firstSeat = result.seats.find((seat) => seat.id === firstSeatId);
+  const secondSeat = result.seats.find((seat) => seat.id === secondSeatId);
+
+  if (!firstSeat?.student || !secondSeat?.student) {
+    return result;
+  }
+
+  const firstStudent = { ...firstSeat.student };
+  const secondStudent = { ...secondSeat.student };
+
+  return {
+    ...result,
+    seats: result.seats.map((seat) => {
+      if (seat.id === firstSeatId) {
+        return { ...seat, student: secondStudent };
+      }
+
+      if (seat.id === secondSeatId) {
+        return { ...seat, student: firstStudent };
+      }
+
+      return {
+        ...seat,
+        ...(seat.student ? { student: { ...seat.student } } : {}),
+      };
+    }),
+    summary: {
+      ...result.summary,
+      manualSwapCount: result.summary.manualSwapCount + 1,
+    },
+  };
 }
 
 function toPositiveInteger(value: string): number {
