@@ -1576,7 +1576,6 @@ function ResultSeatCell(props: {
       <span>{formatSeatLabel(seat)}</span>
       <strong>{seat.student?.name ?? "빈 자리"}</strong>
       <small>{seat.id}</small>
-      <small>{formatHorizontalNeighbors(seat, props.seats)}</small>
     </>
   );
 
@@ -1647,7 +1646,7 @@ function SeatGrid(props: {
 }
 
 function formatSeatLabel(seat: Pick<Seat, "row" | "column" | "zone">): string {
-  return `${zoneLabels[seat.zone]} ${seat.row}행 ${seat.column}열`;
+  return `${zoneLabels[seat.zone]}`;
 }
 
 function findSeat(
@@ -1735,7 +1734,8 @@ function swapAssignedStudents(
       ...(seat.student ? { student: { ...seat.student } } : {}),
     };
   });
-  const adjacentStats = AssignmentEngine.calculateAdjacentPreferenceStats(seats);
+  const adjacentStats =
+    AssignmentEngine.calculateAdjacentPreferenceStats(seats);
 
   return {
     ...result,
