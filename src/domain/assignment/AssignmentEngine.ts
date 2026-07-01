@@ -191,9 +191,9 @@ export class AssignmentEngine {
     const initialStepCount = steps.length;
 
     while (availableSeatsByZone[zone].length > 0) {
-      const activeCandidates = AssignmentPolicy.filterActiveCandidates(
+      const activeCandidates = this.getAssignableCandidatesForZone(
         candidatePoolsByZone[zone],
-        assignedStudentIds
+        assignedStudentIds,
       );
 
       if (activeCandidates.length === 0) {
@@ -261,6 +261,21 @@ export class AssignmentEngine {
     }
 
     return steps.length > initialStepCount;
+  }
+
+  private getAssignableCandidatesForZone(
+    candidates: readonly AssignmentCandidate[],
+    assignedStudentIds: Set<StudentId>,
+  ): AssignmentCandidate[] {
+    const activeCandidates = AssignmentPolicy.filterActiveCandidates(
+      candidates,
+      assignedStudentIds,
+    );
+    const primaryCandidates = activeCandidates.filter(
+      (candidate) => candidate.preferenceDistance === 0,
+    );
+
+    return primaryCandidates.length > 0 ? primaryCandidates : activeCandidates;
   }
 
   private assignUnpreferredStudents(options: {

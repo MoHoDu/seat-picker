@@ -151,6 +151,42 @@ describe("AssignmentEngine", () => {
     ]);
   });
 
+  it("reserves exact-fit zone seats for their primary preference students", () => {
+    const middleStudents: Student[] = Array.from(
+      { length: 6 },
+      (_, index) => ({
+        id: `middle-student-${index + 1}`,
+        name: `M${index + 1}`,
+        preference: "middle",
+      }),
+    );
+    const result = new AssignmentEngine().assign({
+      students: [
+        ...Array.from({ length: 7 }, (_, index) => ({
+          id: `front-student-${index + 1}`,
+          name: `F${index + 1}`,
+          preference: "front" as const,
+        })),
+        ...middleStudents,
+      ],
+      seatLayout: createSeatLayout({ rows: 3, columns: 6 }),
+      seed: "protect-exact-fit-middle",
+    });
+
+    for (const student of middleStudents) {
+      expect(getAssignedSeatByStudentId(result, student.id)?.zone).toBe(
+        "middle",
+      );
+    }
+
+    expect(result.summary).toMatchObject({
+      primaryAssignedCount: 12,
+      firstOverflowAssignedCount: 0,
+      secondOverflowAssignedCount: 1,
+      emptySeatCount: 5,
+    });
+  });
+
   it("places middle preference losers into either front or back without duplicate assignment", () => {
     const result = new AssignmentEngine().assign({
       students: [
