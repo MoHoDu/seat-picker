@@ -433,11 +433,8 @@ export class AssignmentEngine {
 
     return {
       primaryAssignedCount: steps.filter((step) => step.reason === "primary").length,
-      firstOverflowAssignedCount: steps.filter(
-        (step) => step.preferenceDistance === 1
-      ).length,
-      secondOverflowAssignedCount: steps.filter(
-        (step) => step.preferenceDistance === 2
+      outOfPreferenceAssignedCount: steps.filter(
+        (step) => step.reason === "overflow"
       ).length,
       unpreferredAssignedCount: steps.filter(
         (step) => step.reason === "unpreferred"

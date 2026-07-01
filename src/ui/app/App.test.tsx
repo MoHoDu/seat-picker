@@ -253,6 +253,9 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 뽑기" })).toBeInTheDocument();
     expect(screen.getByText("1순위 배정")).toBeInTheDocument();
+    expect(screen.getByText("선호 외 좌석 배정")).toBeInTheDocument();
+    expect(screen.queryByText("1차 이동")).not.toBeInTheDocument();
+    expect(screen.queryByText("2차 이동")).not.toBeInTheDocument();
     expect(screen.getByText("옆자리 희망 충족")).toBeInTheDocument();
     expect(screen.getAllByText("김민준").length).toBeGreaterThan(0);
     expect(screen.getByText("이서연")).toBeInTheDocument();

@@ -38,8 +38,7 @@ export type AssignmentStep = {
 
 export type AssignmentSummary = {
   primaryAssignedCount: number;
-  firstOverflowAssignedCount: number;
-  secondOverflowAssignedCount: number;
+  outOfPreferenceAssignedCount: number;
   unpreferredAssignedCount: number;
   adjacentPreferenceCount: number;
   adjacentPreferenceSatisfiedCount: number;

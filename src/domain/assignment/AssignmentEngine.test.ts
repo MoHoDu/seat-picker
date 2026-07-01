@@ -104,8 +104,7 @@ describe("AssignmentEngine", () => {
 
     expect(result.summary).toMatchObject({
       primaryAssignedCount: 1,
-      firstOverflowAssignedCount: 1,
-      secondOverflowAssignedCount: 0,
+      outOfPreferenceAssignedCount: 1,
       unpreferredAssignedCount: 0,
       emptySeatCount: 1,
       manualSwapCount: 0,
@@ -130,8 +129,7 @@ describe("AssignmentEngine", () => {
 
     expect(result.summary).toMatchObject({
       primaryAssignedCount: 1,
-      firstOverflowAssignedCount: 1,
-      secondOverflowAssignedCount: 1,
+      outOfPreferenceAssignedCount: 2,
       unpreferredAssignedCount: 0,
       emptySeatCount: 0,
       manualSwapCount: 0,
@@ -181,8 +179,7 @@ describe("AssignmentEngine", () => {
 
     expect(result.summary).toMatchObject({
       primaryAssignedCount: 12,
-      firstOverflowAssignedCount: 0,
-      secondOverflowAssignedCount: 1,
+      outOfPreferenceAssignedCount: 1,
       emptySeatCount: 5,
     });
   });
@@ -199,8 +196,7 @@ describe("AssignmentEngine", () => {
 
     expect(result.summary).toMatchObject({
       primaryAssignedCount: 1,
-      firstOverflowAssignedCount: 1,
-      secondOverflowAssignedCount: 0,
+      outOfPreferenceAssignedCount: 1,
       unpreferredAssignedCount: 0,
       emptySeatCount: 1,
     });
@@ -300,8 +296,7 @@ describe("AssignmentEngine", () => {
 
     expect(result.summary).toMatchObject({
       primaryAssignedCount: 0,
-      firstOverflowAssignedCount: 1,
-      secondOverflowAssignedCount: 1,
+      outOfPreferenceAssignedCount: 2,
       unpreferredAssignedCount: 0,
       emptySeatCount: 0,
     });
@@ -437,8 +432,7 @@ describe("AssignmentEngine", () => {
     ).length;
     const summaryAssignedCount =
       result.summary.primaryAssignedCount +
-      result.summary.firstOverflowAssignedCount +
-      result.summary.secondOverflowAssignedCount +
+      result.summary.outOfPreferenceAssignedCount +
       result.summary.unpreferredAssignedCount;
 
     expect(summaryAssignedCount).toBe(assignedSeatCount);

@@ -1606,12 +1606,8 @@ function ResultStep(props: {
           <dd>{result.summary.primaryAssignedCount}</dd>
         </div>
         <div>
-          <dt>1차 이동</dt>
-          <dd>{result.summary.firstOverflowAssignedCount}</dd>
-        </div>
-        <div>
-          <dt>2차 이동</dt>
-          <dd>{result.summary.secondOverflowAssignedCount}</dd>
+          <dt>선호 외 좌석 배정</dt>
+          <dd>{getOutOfPreferenceAssignedCount(result.summary)}</dd>
         </div>
         <div>
           <dt>무선호 배정</dt>
@@ -1660,6 +1656,20 @@ function ResultStep(props: {
         ))}
       </div>
     </section>
+  );
+}
+
+function getOutOfPreferenceAssignedCount(
+  summary: Partial<AssignmentResult["summary"]> &
+    Partial<{
+      firstOverflowAssignedCount: number;
+      secondOverflowAssignedCount: number;
+    }>,
+): number {
+  return (
+    summary.outOfPreferenceAssignedCount ??
+    (summary.firstOverflowAssignedCount ?? 0) +
+      (summary.secondOverflowAssignedCount ?? 0)
   );
 }
 
